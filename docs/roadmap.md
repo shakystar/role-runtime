@@ -78,6 +78,8 @@ Codex advisory 파일럿: Go app-server 어댑터·역할 thread 영속 매핑�
 
 후속 업데이트: [Codex heartbeat·CooperativePool 문서 SMS](research/codex-heartbeat-sms-results.md) 연결과 실제 1워커·3단계·대기/재개 검증을 완료했다. 모델/step의 기본 경과시간 기한을 제거했다. [경주·대구·포항 제안 심의](../experiments/event-search/regional-decision.md)도 실제 실행했다. 큰 문서 참조·Codex SMS 재시작 통합 검증·전체 조직·쓰기 도구·자원 비교는 남아 있다.
 
+[경주 자료 발견 → 검증 → 심의](../experiments/event-search/gyeongju-evidence-pipeline.md)도 실제 Codex로 완료했다. 공식 후보 6곳, 3역할·1워커·5회 실행, 대기·재개 2회와 두 SMS의 생성 내용 반영을 확인했다. 심의는 장소 선택에 필요한 구체적 활동·비용·소요시간의 추가 근거를 요청했다. 웹 수집은 외부 공급자가 수행했으며 자동 SNS 수집·주기적 변경 추적·제품 효용 검증은 남아 있다.
+
 목표: 사업 검토부터 제품 구현까지 외부에서 지정한 역할 작업을 실행한다. DTO → 컨트롤러 → 픽처 → QA는 제품 개발 단계의 하위 작업열이다.
 
 산출물: CLI 또는 최소 API, 상태 조회, 합성 프로젝트 기반 end-to-end 데모, 운영 문서.

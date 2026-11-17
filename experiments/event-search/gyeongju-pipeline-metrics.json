@@ -1,0 +1,39 @@
+{
+  "outputMode": "backend-schema",
+  "completed": true,
+  "workers": 1,
+  "processesStarted": 1,
+  "waitingObserved": [
+    "reviewer",
+    "verifier"
+  ],
+  "handoffHashes": {
+    "candidates-v1": "fb148a213110ab41d56106c48e7dbfbcd7dea9ba50e01147c466daa6dee0e11b",
+    "verified-v1": "ed103a5da301324e87c5250f9f87b8cf77919d077088500dc89c1f53928088f0"
+  },
+  "evidenceSHA256": "f7bf9a0f87c5bc31767a4847066e4b8b80e5acd8663811d1aa50cb20efe52fa3",
+  "stats": {
+    "steps": 5,
+    "completed": 3,
+    "suspended": 2,
+    "resumed": 2,
+    "maxActive": 1,
+    "heartbeats": 9
+  },
+  "usage": {
+    "scope": "successful-turn-last-notification",
+    "inputTokens": 50286,
+    "outputTokens": 4216,
+    "cachedInputTokens": 21248,
+    "known": true,
+    "completedTurns": 5,
+    "measuredTurns": 5
+  },
+  "seconds": 104.132252919,
+  "artifactStorage": "versioned document JSON in durable SMS body; no prior standalone document file",
+  "date": "2026-11-18",
+  "readbackVerified": true,
+  "candidates": 6,
+  "businessDecision": "request evidence",
+  "scope": "Externally collected evidence; three advisory roles; one actual Codex process. Not autonomous web collection, market validation, or measured memory savings."
+}
