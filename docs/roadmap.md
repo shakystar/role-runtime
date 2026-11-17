@@ -9,7 +9,7 @@
 | S0-1 | 목적·용어·범위 정리 | 완료 | requirements.md |
 | S0-2 | 후보별 문서 조사와 검증 질문 | 예비 조사 완료 | research/reuse-candidates.md |
 | S0-3 | 비교군·수용 기준 설계 | 초안 완료 | validation.md |
-| S0-4 | 로컬 Git·origin·main 준비 | 초기 저장소 준비 단계 | 최초 커밋 및 원격 확인으로 검증 |
+| S0-4 | 로컬 Git·origin·main 준비 | 완료 | 최초 커밋 42b8697, origin/main 푸시 및 upstream 설정 성공 |
 | S1-1 | pi/Eino/Letta 버전·라이선스·확장 지점 조사 | 대기 | 버전 고정된 비교표 |
 | S1-2 | Go 도구체인과 최소 개발 검사 구성 | 대기 | go version, 빌드/검사 로그 |
 | S1-3 | pi A → B → A 기술 실험 | 대기 | 재현 명령, 상태 격리 로그 |
