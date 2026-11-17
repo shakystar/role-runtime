@@ -1,0 +1,1 @@
+record_id,participant_pseudonym,task_id,condition,order,started_at,elapsed_seconds,selected_event,condition_errors,unresolved_conditions,abandoned,observer_notes,consent_reference

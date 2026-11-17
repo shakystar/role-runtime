@@ -1,0 +1,395 @@
+{
+  "date": "2026-11-17",
+  "usageScope": "successful-turn-last-notification; not full cost accounting",
+  "runs": [
+    {
+      "completed": true,
+      "workers": 2,
+      "processesStarted": 5,
+      "memoryChecks": 3,
+      "seconds": 77.409152527,
+      "run": "pilot-01",
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          },
+          "usage": [
+            {
+              "inputTokens": 12914,
+              "outputTokens": 448,
+              "cachedInputTokens": 4096,
+              "known": true,
+              "completedTurns": 2,
+              "measuredTurns": 2
+            },
+            {
+              "inputTokens": 6456,
+              "outputTokens": 231,
+              "cachedInputTokens": 4096,
+              "known": true,
+              "completedTurns": 1,
+              "measuredTurns": 1
+            }
+          ],
+          "tasks": [
+            {
+              "role": "customer",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            },
+            {
+              "role": "finance",
+              "status": "succeeded",
+              "worker": 1,
+              "error": ""
+            },
+            {
+              "role": "operations",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            }
+          ]
+        },
+        {
+          "stage": 2,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          },
+          "usage": [
+            {
+              "inputTokens": 7249,
+              "outputTokens": 216,
+              "cachedInputTokens": 6528,
+              "known": true,
+              "completedTurns": 1,
+              "measuredTurns": 1
+            },
+            {
+              "inputTokens": 14505,
+              "outputTokens": 489,
+              "cachedInputTokens": 13056,
+              "known": true,
+              "completedTurns": 2,
+              "measuredTurns": 2
+            }
+          ],
+          "tasks": [
+            {
+              "role": "finance",
+              "status": "succeeded",
+              "worker": 1,
+              "error": ""
+            },
+            {
+              "role": "customer",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            },
+            {
+              "role": "operations",
+              "status": "succeeded",
+              "worker": 1,
+              "error": ""
+            }
+          ]
+        },
+        {
+          "stage": 3,
+          "stats": {
+            "submitted": 1,
+            "succeeded": 1,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 1,
+            "maxQueued": 1,
+            "workers": 1
+          },
+          "usage": [
+            {
+              "inputTokens": 7096,
+              "outputTokens": 306,
+              "cachedInputTokens": 3072,
+              "known": true,
+              "completedTurns": 1,
+              "measuredTurns": 1
+            }
+          ],
+          "tasks": [
+            {
+              "role": "chair",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "completed": false,
+      "error": "context canceled",
+      "workers": 2,
+      "processesStarted": 3,
+      "memoryChecks": 0,
+      "seconds": 178.907200634,
+      "run": "pilot-02",
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 0,
+            "failed": 3,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          },
+          "usage": [
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "cachedInputTokens": 0,
+              "known": false,
+              "completedTurns": 0,
+              "measuredTurns": 0
+            },
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "cachedInputTokens": 0,
+              "known": false,
+              "completedTurns": 0,
+              "measuredTurns": 0
+            }
+          ],
+          "tasks": [
+            {
+              "role": "customer",
+              "status": "canceled",
+              "worker": 0,
+              "error": "context deadline exceeded"
+            },
+            {
+              "role": "finance",
+              "status": "canceled",
+              "worker": 1,
+              "error": "context deadline exceeded"
+            },
+            {
+              "role": "operations",
+              "status": "canceled",
+              "worker": 0,
+              "error": "context canceled"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "completed": true,
+      "workers": 1,
+      "processesStarted": 1,
+      "memoryChecks": 0,
+      "seconds": 13.049221669,
+      "run": "probe-03",
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 1,
+            "succeeded": 1,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 1,
+            "maxQueued": 1,
+            "workers": 1
+          },
+          "usage": [
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 6453,
+              "outputTokens": 210,
+              "cachedInputTokens": 0,
+              "known": true,
+              "completedTurns": 1,
+              "measuredTurns": 1
+            }
+          ],
+          "tasks": [
+            {
+              "role": "customer",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "completed": true,
+      "workers": 2,
+      "processesStarted": 5,
+      "memoryChecks": 3,
+      "seconds": 67.664841322,
+      "run": "pilot-04",
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          },
+          "usage": [
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 12912,
+              "outputTokens": 468,
+              "cachedInputTokens": 4096,
+              "known": true,
+              "completedTurns": 2,
+              "measuredTurns": 2
+            },
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 6457,
+              "outputTokens": 257,
+              "cachedInputTokens": 4096,
+              "known": true,
+              "completedTurns": 1,
+              "measuredTurns": 1
+            }
+          ],
+          "tasks": [
+            {
+              "role": "customer",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            },
+            {
+              "role": "finance",
+              "status": "succeeded",
+              "worker": 1,
+              "error": ""
+            },
+            {
+              "role": "operations",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            }
+          ]
+        },
+        {
+          "stage": 2,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          },
+          "usage": [
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 7218,
+              "outputTokens": 212,
+              "cachedInputTokens": 6528,
+              "known": true,
+              "completedTurns": 1,
+              "measuredTurns": 1
+            },
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 14527,
+              "outputTokens": 457,
+              "cachedInputTokens": 10624,
+              "known": true,
+              "completedTurns": 2,
+              "measuredTurns": 2
+            }
+          ],
+          "tasks": [
+            {
+              "role": "finance",
+              "status": "succeeded",
+              "worker": 1,
+              "error": ""
+            },
+            {
+              "role": "customer",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            },
+            {
+              "role": "operations",
+              "status": "succeeded",
+              "worker": 1,
+              "error": ""
+            }
+          ]
+        },
+        {
+          "stage": 3,
+          "stats": {
+            "submitted": 1,
+            "succeeded": 1,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 1,
+            "maxQueued": 1,
+            "workers": 1
+          },
+          "usage": [
+            {
+              "scope": "successful-turn-last-notification",
+              "inputTokens": 7060,
+              "outputTokens": 351,
+              "cachedInputTokens": 0,
+              "known": true,
+              "completedTurns": 1,
+              "measuredTurns": 1
+            }
+          ],
+          "tasks": [
+            {
+              "role": "chair",
+              "status": "succeeded",
+              "worker": 0,
+              "error": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

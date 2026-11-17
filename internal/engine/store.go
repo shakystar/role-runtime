@@ -107,6 +107,16 @@ func readJSON(path string, out any) error {
 	return json.Unmarshal(data, out)
 }
 func (s *Store) Resolve(ctx context.Context, t Task) (Activation, error) {
+	a, err := s.ResolveDefinitions(ctx, t)
+	if err != nil {
+		return a, err
+	}
+	return s.resolvePiSession(t, a)
+}
+
+// ResolveDefinitions validates immutable identities and quarantine without
+// creating a harness-specific session. Adapters own their session formats.
+func (s *Store) ResolveDefinitions(ctx context.Context, t Task) (Activation, error) {
 	if err := ctx.Err(); err != nil {
 		return Activation{}, err
 	}
@@ -131,6 +141,10 @@ func (s *Store) Resolve(ctx context.Context, t Task) (Activation, error) {
 	} else if !os.IsNotExist(err) {
 		return a, err
 	}
+	return a, nil
+}
+
+func (s *Store) resolvePiSession(t Task, a Activation) (Activation, error) {
 	a.SessionID = t.Key()
 	a.SessionPath = filepath.Join(s.Root, "sessions", a.SessionID+".jsonl")
 	s.mu.Lock()

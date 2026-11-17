@@ -8,6 +8,10 @@
 
 **현재 상태: Go RPC·제한된 워커 풀에 heartbeat, 영속 SMS, 대기·재개를 구현했다. 400역할 실행, 역할 간 요청·응답, 워커 수별 자원 사용량을 실제 pi와 합성 모델로 검증했다. 생산용 런타임은 아직 아니다.**
 
+Codex app-server용 [Go 어댑터와 실제 모델 파일럿](docs/design/codex-adapter.md)을 추가했다. 사전 심의 역할을 기존 Pool로 실행하고 역할 thread를 프로세스 재시작 후 복원한다. Codex의 쓰기 도구·heartbeat/SMS 연결과 자원 효율 검증은 별도 후속 범위다.
+
+[실제 실행 결과](docs/research/codex-pilot-results.md): 최종 파일럿 7/7 작업 성공, 최대 2워커, 재시작 후 역할 복원 3/3. 중간 시간 초과 실행도 함께 기록했다.
+
 ## 실행 모델
 
 ```text
@@ -45,6 +49,8 @@
 pi의 `defaultTools`만으로는 확장 도구가 제한되지 않았다. 세션 활성화 시 명시적인 도구 allowlist를 적용하는 확장으로 해결했고, 기존 동작도 비교 테스트에 남겼다.
 
 ## 문서
+
+실제 실험은 [사업 조직 운영](experiments/event-search/README.md)이다. 40개 전문 역할의 절차를 설계하고 협업 에이전트로 G0·G1 준비를 진행한 뒤, Welcome to Korea 안건을 Codex 어댑터와 실제 Pool로 실행했다. 전체 40개 역할 실행과 실제 고객 조사는 아직 진행하지 않았다.
 
 | 문서 | 내용 |
 | --- | --- |
