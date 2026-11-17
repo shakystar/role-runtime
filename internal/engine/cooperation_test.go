@@ -309,6 +309,29 @@ func TestHeartbeatFailureAndStepDeadlineFence(t *testing.T) {
 	}
 }
 
+type deadlineInspectExecutor struct{}
+
+func (deadlineInspectExecutor) Close() error                        { return nil }
+func (deadlineInspectExecutor) Heartbeat(ctx context.Context) error { return ctx.Err() }
+func (deadlineInspectExecutor) Step(ctx context.Context, _ Execution) (Transition, error) {
+	if _, ok := ctx.Deadline(); ok {
+		return Transition{}, errors.New("unexpected step deadline")
+	}
+	return Transition{Text: "complete without elapsed deadline"}, ctx.Err()
+}
+func TestZeroStepTimeoutHasNoDeadline(t *testing.T) {
+	s := fixtureStore(t)
+	task := coopTask("no-deadline", "dto")
+	mustSubmit(t, s, task)
+	r := mustLease(t, s, task.ID)
+	p := CooperativePool{Store: s, HeartbeatInterval: time.Second, HeartbeatTimeout: time.Second, LeaseTTL: 5 * time.Second}
+	var beats atomic.Int64
+	tr, err := p.step(context.Background(), deadlineInspectExecutor{}, r, &beats)
+	if err != nil || tr.Text == "" || beats.Load() != 1 {
+		t.Fatalf("%+v %v beats=%d", tr, err, beats.Load())
+	}
+}
+
 func TestMailboxExactRoleVersionAndConcurrentDelivery(t *testing.T) {
 	s := fixtureStore(t)
 	task := coopTask("request", "dto")

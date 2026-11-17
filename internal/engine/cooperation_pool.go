@@ -54,8 +54,8 @@ func (p CooperativePool) Run(parent context.Context) (stats CooperativeStats, ru
 	if p.LeaseTTL <= 0 {
 		p.LeaseTTL = 10 * time.Second
 	}
-	if p.StepTimeout <= 0 {
-		p.StepTimeout = time.Minute
+	if p.StepTimeout < 0 {
+		return stats, errors.New("step timeout must be nonnegative; zero disables elapsed-time deadline")
 	}
 	if p.LeaseTTL <= p.HeartbeatInterval+p.HeartbeatTimeout {
 		return stats, errors.New("lease must exceed heartbeat interval plus timeout")
@@ -202,7 +202,11 @@ func (p CooperativePool) Run(parent context.Context) (stats CooperativeStats, ru
 	}
 }
 func (p CooperativePool) step(parent context.Context, e StepExecutor, r CooperativeRecord, beats *atomic.Int64) (Transition, error) {
-	ctx, cancel := context.WithTimeout(parent, p.StepTimeout)
+	ctx, cancel := context.WithCancel(parent)
+	if p.StepTimeout > 0 {
+		cancel()
+		ctx, cancel = context.WithTimeout(parent, p.StepTimeout)
+	}
 	defer cancel()
 	// Probe before executing: starting a Go timer is not a worker heartbeat.
 	probe := func() error {

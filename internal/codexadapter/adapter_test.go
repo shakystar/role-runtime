@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,11 @@ func TestCodexAdapterProcess(t *testing.T) {
 			os.Exit(2)
 		}
 	}
+	var activeID, mode string
+	beats := 0
+	complete := func() {
+		send(map[string]any{"method": "turn/completed", "params": map[string]any{"threadId": activeID, "turn": map[string]any{"id": "turn-1", "status": "completed", "items": []any{map[string]any{"type": "agentMessage", "phase": "final_answer", "text": "delayed success"}}}}})
+	}
 	for scanner.Scan() {
 		var req struct {
 			ID     json.RawMessage            `json:"id"`
@@ -38,8 +44,36 @@ func TestCodexAdapterProcess(t *testing.T) {
 		if len(req.ID) == 0 {
 			continue
 		}
+		if os.Getenv("ROLE_RUNTIME_STALL_CONTROL") == req.Method {
+			continue
+		}
 		var result any = map[string]any{}
 		switch req.Method {
+		case "thread/loaded/list":
+			beats++
+			if mode == "probe-dies" {
+				os.Exit(0)
+			}
+			if mode == "probe-stalls" {
+				continue
+			}
+			if mode == "complete-during-probe" {
+				complete()
+				time.Sleep(60 * time.Millisecond)
+				mode = ""
+			}
+			if mode == "heartbeat-delayed" && beats == 3 {
+				send(map[string]any{"method": "thread/status/changed", "params": map[string]any{"threadId": activeID, "status": map[string]any{"type": "active", "activeFlags": []string{"waitingOnUserInput"}}}})
+				complete()
+			}
+			if mode == "progress-delayed" {
+				for i := 0; i < 25; i++ {
+					send(map[string]any{"method": "item/reasoning/textDelta", "params": map[string]any{"threadId": activeID, "turnId": "turn-1", "delta": "private-reasoning-must-not-appear-in-status"}})
+					time.Sleep(time.Millisecond)
+				}
+				complete()
+			}
+			result = map[string]any{"data": []string{activeID}}
 		case "thread/start", "thread/resume":
 			var cwd, instructions, id string
 			json.Unmarshal(req.Params["cwd"], &cwd)
@@ -56,6 +90,16 @@ func TestCodexAdapterProcess(t *testing.T) {
 			}
 			json.Unmarshal(req.Params["threadId"], &id)
 			json.Unmarshal(req.Params["input"], &input)
+			activeID = id
+			mode = input[0].Text
+			beats = 0
+			if input[0].Text == "require-schema" {
+				var schema map[string]any
+				if json.Unmarshal(req.Params["outputSchema"], &schema) != nil || schema["type"] != "object" || schema["additionalProperties"] != false {
+					send(map[string]any{"id": req.ID, "error": map[string]any{"code": -32602}})
+					continue
+				}
+			}
 			if input[0].Text == "lost-ack" {
 				os.Exit(0)
 			}
@@ -63,7 +107,18 @@ func TestCodexAdapterProcess(t *testing.T) {
 			if input[0].Text == "hang" {
 				continue
 			}
+			if strings.HasPrefix(mode, "probe-") || strings.HasSuffix(mode, "-delayed") || mode == "complete-during-probe" {
+				continue
+			}
 			notify := func(method string, p any) { send(map[string]any{"method": method, "params": p}) }
+			if mode == "backend-errors" {
+				for i, code := range []any{"serverOverloaded", map[string]any{"responseStreamDisconnected": map[string]any{"httpStatusCode": 503, "private": "private-error-secret"}}, "private-error-secret"} {
+					notify("error", map[string]any{"threadId": id, "turnId": "turn-1", "willRetry": i != 2, "error": map[string]any{"codexErrorInfo": code, "message": "private-error-secret", "additionalDetails": "private-error-secret", "misalignment": map[string]any{"detailedExplanation": "private-error-secret"}}})
+				}
+			}
+			if mode == "string-status" {
+				notify("mcpServer/startupStatus/updated", map[string]any{"threadId": id, "status": "ready", "delta": map[string]any{"other": "shape"}, "turn": "unrelated"})
+			}
 			if input[0].Text == "tool" {
 				notify("item/started", map[string]any{"threadId": id, "turnId": "turn-1", "item": map[string]any{"type": "commandExecution"}})
 				continue
@@ -81,6 +136,141 @@ func TestCodexAdapterProcess(t *testing.T) {
 		send(map[string]any{"id": req.ID, "result": result})
 	}
 	os.Exit(0)
+}
+
+func TestUnlimitedTurnHeartbeatAndProgress(t *testing.T) {
+	for _, mode := range []string{"heartbeat-delayed", "progress-delayed", "complete-during-probe"} {
+		t.Run(mode, func(t *testing.T) {
+			cfg, task := fixture(t)
+			cfg.TaskTimeout = 0
+			cfg.HeartbeatInterval = 30 * time.Millisecond
+			cfg.HeartbeatTimeout = time.Second
+			cfg.RPC.NotificationBuffer = 8
+			var statuses []Status
+			cfg.OnStatus = func(s Status) { statuses = append(statuses, s) }
+			a, err := New(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer a.Close()
+			if a.cfg.TaskTimeout != 0 {
+				t.Fatal("default task timeout was introduced")
+			}
+			task.Input = mode
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			result, err := a.Execute(ctx, task)
+			if err != nil {
+				t.Fatal(err)
+			}
+			final := statuses[len(statuses)-1]
+			if final.Phase != "completed" || final.HeartbeatCount == 0 || final.LastHeartbeat.IsZero() {
+				t.Fatalf("missing heartbeat: %+v", final)
+			}
+			if mode == "heartbeat-delayed" && (final.HeartbeatCount < 3 || !final.LastProgress.IsZero()) {
+				t.Fatalf("lifecycle is not progress: %+v", final)
+			}
+			if mode == "heartbeat-delayed" && (final.ThreadState != "active" || len(final.WaitingFlags) != 1 || final.WaitingFlags[0] != "waitingOnUserInput") {
+				t.Fatal("thread wait state missing")
+			}
+			if mode == "progress-delayed" && final.LastProgress.IsZero() {
+				t.Fatal("missing progress")
+			}
+			data, _ := json.Marshal(statuses)
+			if strings.Contains(string(data), "private-reasoning") {
+				t.Fatal("status leaked content")
+			}
+			task.ID = "next"
+			task.Input = "hello"
+			next, err := a.Execute(ctx, task)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.PID != next.PID || a.Starts != 1 {
+				t.Fatal("normal completion killed healthy probe/process")
+			}
+		})
+	}
+}
+
+func TestControlPlaneDeadlineSeparateFromUnlimitedTurn(t *testing.T) {
+	cfg, task := fixture(t)
+	cfg.TaskTimeout = 0
+	cfg.StartupTimeout = 300 * time.Millisecond
+	cfg.RPC.Env = append(cfg.RPC.Env, "ROLE_RUNTIME_STALL_CONTROL=config/read")
+	a, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	_, err = a.Execute(context.Background(), task)
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "control config/read") {
+		t.Fatalf("control deadline: %v", err)
+	}
+}
+
+func TestPublicHeartbeat(t *testing.T) {
+	cfg, _ := fixture(t)
+	a, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err = a.Heartbeat(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !a.client.Alive() {
+		t.Fatal("probe killed process")
+	}
+}
+
+func TestHeartbeatFailureAndUserCancel(t *testing.T) {
+	for _, mode := range []string{"probe-dies", "probe-stalls", "cancel"} {
+		t.Run(mode, func(t *testing.T) {
+			cfg, task := fixture(t)
+			cfg.TaskTimeout = 0
+			cfg.HeartbeatInterval = 20 * time.Millisecond
+			cfg.HeartbeatTimeout = 100 * time.Millisecond
+			a, err := New(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer a.Close()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			task.Input = mode
+			if mode == "cancel" {
+				task.Input = "probe-stalls"
+				timer := time.AfterFunc(60*time.Millisecond, cancel)
+				defer timer.Stop()
+			}
+			began := time.Now()
+			_, err = a.Execute(ctx, task)
+			if err == nil {
+				t.Fatal("failed heartbeat/cancel succeeded")
+			}
+			if mode == "cancel" && !errors.Is(err, context.Canceled) {
+				t.Fatalf("cancel: %v", err)
+			}
+			if time.Since(began) > 2*time.Second {
+				t.Fatal("probe cleanup blocked")
+			}
+			if a.client != nil {
+				t.Fatal("failed execution retained process")
+			}
+		})
+	}
+}
+
+func TestRejectNegativeTaskTimeout(t *testing.T) {
+	cfg, _ := fixture(t)
+	cfg.TaskTimeout = -time.Second
+	if a, err := New(cfg); err == nil {
+		a.Close()
+		t.Fatal("negative timeout accepted")
+	}
 }
 func fixture(t *testing.T) (Config, engine.Task) {
 	t.Helper()
@@ -103,6 +293,73 @@ func fixture(t *testing.T) (Config, engine.Task) {
 	}
 	cfg := Config{Store: store, TaskTimeout: time.Second, RPC: codexrpc.Config{Command: os.Args[0], Args: []string{"-test.run=^TestCodexAdapterProcess$"}, Env: append(os.Environ(), "ROLE_RUNTIME_ADAPTER_HELPER=1")}}
 	return cfg, engine.Task{ID: "t1", Project: "project", Role: "alpha", Version: "v1", Instance: "default", Input: "hello"}
+}
+
+func TestStructuredOutputSchemaForwarded(t *testing.T) {
+	cfg, task := fixture(t)
+	cfg.OutputSchema = json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)
+	task.Input = "require-schema"
+	a, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if _, err := a.Execute(context.Background(), task); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUnrelatedNotificationStringStatus(t *testing.T) {
+	cfg, task := fixture(t)
+	task.Input = "string-status"
+	a, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if _, err = a.Execute(context.Background(), task); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBackendErrorMetadataObservedWithoutContentOrRetry(t *testing.T) {
+	cfg, task := fixture(t)
+	task.Input = "backend-errors"
+	var statuses []Status
+	cfg.OnStatus = func(s Status) { statuses = append(statuses, s) }
+	a, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if _, err = a.Execute(context.Background(), task); err != nil {
+		t.Fatal(err)
+	}
+	var backend []Status
+	for _, s := range statuses {
+		if s.Phase == "backend_retrying" || s.Phase == "backend_error" {
+			backend = append(backend, s)
+		}
+	}
+	if len(backend) != 3 {
+		t.Fatalf("backend events=%d", len(backend))
+	}
+	if backend[0].BackendErrorCode != "serverOverloaded" || backend[1].BackendHTTPStatus != 503 || backend[2].BackendErrorCode != "unknown" {
+		t.Fatalf("wrong sanitized metadata: %+v", backend)
+	}
+	if backend[2].BackendWillRetry == nil || *backend[2].BackendWillRetry || backend[2].BackendErrorCount != 3 || backend[2].LastBackendErrorAt.IsZero() {
+		t.Fatal("missing retry/count/time")
+	}
+	if !backend[2].LastProgress.IsZero() {
+		t.Fatal("backend retry is not model progress")
+	}
+	data, _ := json.Marshal(statuses)
+	if strings.Contains(string(data), "private-error-secret") {
+		t.Fatal("private error leaked")
+	}
+	if statuses[len(statuses)-1].Phase != "completed" || a.Starts != 1 || a.Usage().CompletedTurns != 1 {
+		t.Fatal("error observation changed execution")
+	}
 }
 func TestRoleSwitchAndRestartMapping(t *testing.T) {
 	cfg, task := fixture(t)

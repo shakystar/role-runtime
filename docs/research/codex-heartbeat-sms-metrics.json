@@ -1,0 +1,115 @@
+{
+  "runs": [
+    {
+      "completed": true,
+      "seconds": 185.163485102,
+      "name": "diagnostic",
+      "maxObservedHeartbeatCount": 11,
+      "backendErrorCodes": [
+        "responseStreamDisconnected"
+      ],
+      "maxBackendErrorCount": 7,
+      "firstProgressSeconds": 170.017084289,
+      "lastPhase": "completed"
+    },
+    {
+      "completed": true,
+      "seconds": 60.683341079,
+      "name": "control",
+      "maxObservedHeartbeatCount": 3,
+      "backendErrorCodes": [],
+      "maxBackendErrorCount": 0,
+      "firstProgressSeconds": 44.598808923,
+      "lastPhase": "completed"
+    },
+    {
+      "completed": false,
+      "error": "review-document uncertain: codex turn ended failed\ncodex turn ended failed",
+      "seconds": 219.052218217,
+      "stats": {
+        "steps": 1,
+        "completed": 0,
+        "suspended": 0,
+        "resumed": 0,
+        "maxActive": 1,
+        "heartbeats": 15
+      },
+      "name": "sms-01",
+      "maxObservedHeartbeatCount": 14,
+      "backendErrorCodes": null,
+      "maxBackendErrorCount": null,
+      "firstProgressSeconds": null,
+      "lastPhase": "failed",
+      "backendErrorInstrumentation": "not present in this earlier binary"
+    },
+    {
+      "outputMode": "backend-schema",
+      "completed": false,
+      "error": "reviewer has no durable inbox or resumed generation",
+      "workers": 1,
+      "processesStarted": 1,
+      "waitingObserved": true,
+      "plannerSubmittedAfterWait": true,
+      "documentVerifiedInDurableMailbox": false,
+      "reviewMatchedGeneratedDetail": false,
+      "reviewerGeneration": 2,
+      "stats": {
+        "steps": 3,
+        "completed": 2,
+        "suspended": 1,
+        "resumed": 1,
+        "maxActive": 1,
+        "heartbeats": 4
+      },
+      "usage": {
+        "scope": "successful-turn-last-notification",
+        "inputTokens": 21646,
+        "outputTokens": 1351,
+        "cachedInputTokens": 0,
+        "known": true,
+        "completedTurns": 3,
+        "measuredTurns": 3
+      },
+      "seconds": 41.116649011,
+      "artifactStorage": "versioned document JSON in durable SMS body; no prior standalone document file",
+      "name": "sms-02",
+      "posthocValidation": {
+        "completedInboxClearedByDesign": true,
+        "durableDocumentMatchesAllThreeReviewFacts": true,
+        "originalReportPreserved": true
+      }
+    },
+    {
+      "outputMode": "backend-schema",
+      "completed": true,
+      "workers": 1,
+      "processesStarted": 1,
+      "waitingObserved": true,
+      "plannerSubmittedAfterWait": true,
+      "documentVerifiedInDurableMailbox": true,
+      "reviewMatchedGeneratedDetail": true,
+      "documentSHA256": "6f1d334ea24972a27efd3776282bcff084a557e4e97b8ee7fe5b4bfaa578309d",
+      "reviewerGeneration": 2,
+      "stats": {
+        "steps": 3,
+        "completed": 2,
+        "suspended": 1,
+        "resumed": 1,
+        "maxActive": 1,
+        "heartbeats": 3
+      },
+      "usage": {
+        "scope": "successful-turn-last-notification",
+        "inputTokens": 21529,
+        "outputTokens": 1030,
+        "cachedInputTokens": 6784,
+        "known": true,
+        "completedTurns": 3,
+        "measuredTurns": 3
+      },
+      "seconds": 33.403724734,
+      "artifactStorage": "versioned document JSON in durable SMS body; no prior standalone document file",
+      "name": "sms-03"
+    }
+  ]
+}

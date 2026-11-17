@@ -70,11 +70,13 @@ Go 1.26.11을 프로젝트 내부에 설치해 검증했다. 시스템 설정은
 
 사용자 방향 변경: 개발 파이프라인에 한정하지 않고, 이벤트·혜택 검색 사업의 제안·임원 심의·예산 편성·마케팅·제품·개발·운영을 전문 역할이 검토한다. 근거에 따라 방향 전환·보류·중단을 허용한다. [조직 실험 계약](../experiments/event-search/README.md)에 40개 역할, 첫 안건, 결정 절차, 단계별 검증을 정의했다. 현재는 설계이며 실제 모델 조직 실행 결과가 아니다.
 
-협업 에이전트로 [G0 제안 심의](../experiments/event-search/g0-pilot.md)와 [G1 조사 준비·범위 재심](../experiments/event-search/g1-decision.md)을 진행했다. 사용자는 원래 목적을 설명하되 범위 선택을 팀에 위임했다. 이후 Welcome to Korea 안건을 실제 Pool로 실행하기 위해 [Codex 어댑터](design/codex-adapter.md)를 구현했다. 제한된 advisory 역할의 실행·재개를 검증하며 전체 조직·쓰기 도구·Codex SMS 연결은 미완료다. 400역할 합성 실행 결과를 사업 판단 품질이나 실제 조직 효율의 증거로 쓰지 않는다. 임원 의사결정과 작업 공급은 런타임 외부 계층으로 유지한다. DB 페이징은 계속 후속 범위다.
+협업 에이전트로 [G0 제안 심의](../experiments/event-search/g0-pilot.md)와 [G1 조사 준비·범위 재심](../experiments/event-search/g1-decision.md)을 진행했다. 사용자는 원래 목적을 설명하되 범위 선택을 팀에 위임했다. 이후 Welcome to Korea 안건을 실제 Pool로 실행하기 위해 [Codex 어댑터](design/codex-adapter.md)를 구현했다. 제한된 advisory 역할의 실행·재개와 Codex SMS 문서 전달을 검증했다. 전체 조직·쓰기 도구는 미완료다. 400역할 합성 실행 결과를 사업 판단 품질이나 실제 조직 효율의 증거로 쓰지 않는다. 임원 의사결정과 작업 공급은 런타임 외부 계층으로 유지한다. DB 페이징은 계속 후속 범위다.
 
 ## Sprint 5 — 실제 작업 MVP
 
-Codex advisory 파일럿: Go app-server 어댑터·역할 thread 영속 매핑을 추가하고 실제 Pool에서 4역할·최대 2워커·7작업 및 재시작 복원 3건을 검증했다. [결과](research/codex-pilot-results.md). 전체 조직 실행, 쓰기 도구, Codex CooperativePool 연결과 자원 비교는 남아 있다.
+Codex advisory 파일럿: Go app-server 어댑터·역할 thread 영속 매핑을 추가하고 실제 Pool에서 4역할·최대 2워커·7작업 및 재시작 복원 3건을 검증했다. [결과](research/codex-pilot-results.md). 전체 조직 실행, 쓰기 도구와 자원 비교는 남아 있다.
+
+후속 업데이트: [Codex heartbeat·CooperativePool 문서 SMS](research/codex-heartbeat-sms-results.md) 연결과 실제 1워커·3단계·대기/재개 검증을 완료했다. 모델/step의 기본 경과시간 기한을 제거했다. [경주·대구·포항 제안 심의](../experiments/event-search/regional-decision.md)도 실제 실행했다. 큰 문서 참조·Codex SMS 재시작 통합 검증·전체 조직·쓰기 도구·자원 비교는 남아 있다.
 
 목표: 사업 검토부터 제품 구현까지 외부에서 지정한 역할 작업을 실행한다. DTO → 컨트롤러 → 픽처 → QA는 제품 개발 단계의 하위 작업열이다.
 

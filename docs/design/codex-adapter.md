@@ -17,7 +17,7 @@
 
 `Role.Tools=["advisory"]`만 받는다. 공급된 자료로 판단하는 사전 심의용이며 쓰기·외부 연락·도구 작업은 지침으로 금지한다. read-only sandbox 및 approvalPolicy=never, shell/apps/plugins/browser/computer/image 등 비활성화 설정, config/read에서 확인한 MCP 서버별 비활성화를 적용한다. 관찰된 외부 도구 실행 알림도 실패로 처리한다.
 
-이는 모든 내장 도구에 대한 완전한 allowlist나 OS 보안 격리가 아니다. 이미 실행된 도구를 알림으로 탐지하는 것은 부작용을 되돌리지 못한다. 사용자 전역 설정·인증은 Codex가 읽는다. 설정 값·인증 원문을 보고서에 출력하지 않는다. 실제 개발용 쓰기 권한·도구 정책과 CooperativePool heartbeat/SMS 연결은 아직 지원하지 않는다.
+이는 모든 내장 도구에 대한 완전한 allowlist나 OS 보안 격리가 아니다. 이미 실행된 도구를 알림으로 탐지하는 것은 부작용을 되돌리지 못한다. 사용자 전역 설정·인증은 Codex가 읽는다. 설정 값·인증 원문을 보고서에 출력하지 않는다. 실제 개발용 쓰기 권한·도구 정책은 아직 지원하지 않는다. [heartbeat 관찰 및 CooperativePool SMS 연결](codex-cooperation.md)을 별도 추가했다.
 
 `Usage.Scope=successful-turn-last-notification`은 성공한 turn의 마지막 토큰 알림 합계다. 완료된 turn 수와 측정된 turn 수를 함께 기록하며 실패 이후 Known=false를 유지한다. 실패·취소 비용, 모든 내부 모델 요청, 전체 thread 누적 비용을 완전히 계측한 것이 아니다. 원화·달러 비용 또는 토큰 절감률로 환산하지 않는다.
 
@@ -27,6 +27,10 @@
 ./scripts/go.sh build -o bin/codex-pilot ./cmd/codex-pilot
 ./bin/codex-pilot --state artifacts/codex-pilot-new --workers 2 > artifacts/codex-pilot-new-report.json
 ```
+
+새 안건은 `--proposal experiments/event-search/regional-agenda.md`로 공급한다. 입력 파일은 비어 있지 않은 16KiB 이하 문서로 제한한다. 안건의 출처 확인은 외부 작업 공급자가 담당하며 advisory 역할이 직접 웹을 조사했다고 주장하지 않는다. 새 state 실행은 이전 회의 thread를 이어 쓰는 것이 아니라 명시적인 이전 결정 요약을 공급한 새 회의다. 한 회의 안의 독립 검토→교차 검토에서는 역할 thread를 복원한다.
+
+파일럿은 `turn/start.outputSchema`로 checkpoint·recommendation·risk 세 문자열만 허용하는 JSON 스키마를 전달한다. 사용자 안건이 길어지자 모델이 추가 설명 필드를 생성해 드라이버가 중단된 실제 실패를 계기로 보완했다. 어댑터의 `Config.OutputSchema`는 선택 사항이며 파일럿의 최종 파싱·필드 검사도 유지한다.
 
 새 state 디렉터리가 필요하다. 설치된 Codex의 로그인과 모델 연결을 사용하며 실제 모델 작업 7건을 실행한다. 기본 모델은 사용자 설치 설정을 따르고 명시적으로 변경하려면 `--model`을 지정한다. 원시 모델 출력·task 입력·thread 참조는 ignored artifacts와 Codex의 로컬 저장소에 남고 공개 커밋하지 않는다.
 

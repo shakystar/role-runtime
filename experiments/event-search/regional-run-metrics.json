@@ -1,0 +1,165 @@
+{
+  "attempts": [
+    {
+      "completed": false,
+      "error": "s1-finance response JSON: json: unknown field \"부문별_검토\"",
+      "workers": 2,
+      "processesStarted": 2,
+      "memoryChecks": 0,
+      "seconds": 86.84059464,
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          }
+        }
+      ],
+      "attempt": 1
+    },
+    {
+      "completed": false,
+      "error": "context canceled",
+      "workers": 2,
+      "processesStarted": 3,
+      "memoryChecks": 0,
+      "seconds": 159.588237996,
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 0,
+            "failed": 3,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          }
+        }
+      ],
+      "attempt": 2
+    },
+    {
+      "completed": false,
+      "error": "context canceled",
+      "workers": 2,
+      "processesStarted": 3,
+      "memoryChecks": 0,
+      "seconds": 239.752616945,
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 0,
+            "failed": 3,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          }
+        }
+      ],
+      "attempt": 3
+    },
+    {
+      "completed": false,
+      "error": "s1-customer: codex notification: json: cannot unmarshal string into Go struct field .status of type struct { Type string \"json:\\\"type\\\"\"; ActiveFlags []string \"json:\\\"activeFlags\\\"\" }",
+      "workers": 2,
+      "processesStarted": 3,
+      "memoryChecks": 0,
+      "seconds": 11.066206414,
+      "attempt": 4,
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 0,
+            "failed": 3,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          }
+        }
+      ]
+    },
+    {
+      "completed": false,
+      "error": "s1-customer: codex turn ended failed",
+      "workers": 2,
+      "processesStarted": 3,
+      "memoryChecks": 0,
+      "seconds": 377.74108156,
+      "attempt": 5,
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 1,
+            "failed": 2,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          }
+        }
+      ]
+    },
+    {
+      "completed": true,
+      "workers": 2,
+      "processesStarted": 5,
+      "memoryChecks": 3,
+      "seconds": 152.139177105,
+      "attempt": 6,
+      "stages": [
+        {
+          "stage": 1,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          }
+        },
+        {
+          "stage": 2,
+          "stats": {
+            "submitted": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 2,
+            "maxQueued": 1,
+            "workers": 2
+          }
+        },
+        {
+          "stage": 3,
+          "stats": {
+            "submitted": 1,
+            "succeeded": 1,
+            "failed": 0,
+            "rejected": 0,
+            "maxActive": 1,
+            "maxQueued": 1,
+            "workers": 1
+          }
+        }
+      ]
+    }
+  ]
+}

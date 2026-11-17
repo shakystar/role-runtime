@@ -47,7 +47,7 @@ Go `engine.CooperativePool`이 영속 작업을 조회하여 K개 `StepExecutor`
 
 ## Heartbeat와 실패
 
-활성 워커에만 실제 `get_state` RPC를 주기적으로 보내 성공한 경우 실행 임대를 갱신한다. 기본 주기는 1초, 응답 제한 2초, 임대 10초다. 마지막 성공 시각은 작업 기록의 `lastHeartbeat`다. 작업 진척과는 다르므로 별도의 실행 단계 제한 시간(기본 1분)을 적용한다. 대기 중인 역할에는 heartbeat가 없다.
+활성 워커에만 어댑터의 실제 RPC를 주기적으로 보내 성공한 경우 실행 임대를 갱신한다. pi는 `get_state`, Codex는 `thread/loaded/list`를 사용한다. 엔진 기본 주기는 1초, 응답 제한 2초, 임대 10초이며 Codex 데모는 각각 15초·10초·45초로 설정한다. 마지막 성공 시각은 작업 기록의 `lastHeartbeat`다. 작업 진척과는 다르다. 실행 단계의 경과시간 제한은 기본적으로 없으며 `StepTimeout > 0`을 명시할 때만 적용한다. 대기 중인 역할에는 heartbeat가 없다. [Codex 상태 관찰·SMS 계약](codex-cooperation.md)을 참고한다.
 
 각 실행에 증가하는 generation을 부여한다. 완료와 임대 갱신은 현재 generation 및 만료 시각을 확인한다. 오래된 실행 결과는 거절한다. heartbeat 실패나 단계 시간 초과 시 실행을 취소하고 종료를 기다린 뒤 `uncertain`으로 남기고 역할 세션을 격리한다. 슬롯을 이전 실행이 끝나기 전에 재할당하지 않는다. 사용자 정의 StepExecutor도 취소와 Heartbeat timeout을 준수해야 한다.
 

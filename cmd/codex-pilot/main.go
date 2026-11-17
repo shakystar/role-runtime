@@ -10,11 +10,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/shakystar/role-runtime/internal/codexadapter"
 	"github.com/shakystar/role-runtime/internal/codexrpc"
@@ -47,15 +50,24 @@ func main() {
 	workers := flag.Int("workers", 2, "bounded workers, 1..3")
 	model := flag.String("model", "", "optional installed Codex model override")
 	binary := flag.String("codex", "codex", "Codex executable")
-	timeout := flag.Duration("timeout", 8*time.Minute, "entire pilot timeout")
+	timeout := flag.Duration("timeout", 0, "optional entire pilot deadline; 0 means no time deadline")
 	probe := flag.Bool("probe", false, "one role and one model turn; no restoration claim")
+	proposalFile := flag.String("proposal", "", "optional UTF-8 agenda file, at most 16KiB")
+	structured := flag.Bool("structured-output", true, "request backend JSON schema; false uses validated prompt JSON")
 	flag.Parse()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	ctx, cancel := context.WithTimeout(ctx, *timeout)
-	defer cancel()
+	if *timeout < 0 {
+		fmt.Fprintln(os.Stderr, "timeout must be nonnegative")
+		os.Exit(2)
+	}
+	if *timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
+		defer cancel()
+	}
 	started := time.Now()
-	r, err := run(ctx, *state, *workers, *model, *binary, *probe)
+	r, err := run(ctx, *state, *workers, *model, *binary, *probe, *proposalFile, *structured)
 	r.Seconds = time.Since(started).Seconds()
 	if err != nil {
 		r.Error = err.Error()
@@ -66,8 +78,24 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, root string, workers int, model, binary string, probe bool) (r report, err error) {
+func run(ctx context.Context, root string, workers int, model, binary string, probe bool, proposalFile string, structured bool) (r report, err error) {
 	r.Workers = workers
+	customProposal := ""
+	if proposalFile != "" {
+		f, e := os.Open(proposalFile)
+		if e != nil {
+			return r, e
+		}
+		b, e := io.ReadAll(io.LimitReader(f, (16<<10)+1))
+		f.Close()
+		if e != nil {
+			return r, e
+		}
+		if len(b) > 16<<10 || strings.TrimSpace(string(b)) == "" || !utf8.Valid(b) {
+			return r, errors.New("proposal must be valid UTF-8, nonempty and at most 16KiB")
+		}
+		customProposal = string(b)
+	}
 	if root == "" || workers < 1 || workers > 3 {
 		return r, errors.New("require new --state and --workers 1..3")
 	}
@@ -100,7 +128,7 @@ func run(ctx context.Context, root string, workers int, model, binary string, pr
 		r.Workers = 1
 	}
 	instructions := []string{"고객 가치와 기존 대안 대비 차별성을 검토한다.", "광고 수익 가설, 비용과 투자 중단 조건을 검토한다.", "공공데이터 확보·갱신과 민간 광고 검수 가능성을 검토한다."}
-	project := engine.Project{ID: "tourism-pilot", Workspace: workspace, Rules: "공급된 안건만 검토한다. 외부 도구·웹·파일·연락·지출을 사용하지 않는다. 시장 수치나 조사 결과를 만들지 않는다. 이 실행은 사업 가설 사전 심의다. JSON 객체만 출력한다."}
+	project := engine.Project{ID: "tourism-pilot", Workspace: workspace, Rules: "공급된 안건만 검토한다. 외부 도구·웹·파일·연락·지출을 사용하지 않는다. 시장 수치나 조사 결과를 만들지 않는다. 이 실행은 사업 가설 사전 심의다. JSON 객체만 출력한다. 최상위 키는 checkpoint, recommendation, risk 세 개만 사용하고 세 값은 모두 문자열이다. 설명이나 비교표도 이 문자열 안에 적고 추가 키나 Markdown 코드펜스를 만들지 않는다."}
 	if err = store.RegisterProject(project); err != nil {
 		return
 	}
@@ -119,10 +147,23 @@ func run(ctx context.Context, root string, workers int, model, binary string, pr
 		return
 	}
 	// No model selection override by default: use the user's installed default.
-	cfg := codexadapter.Config{Store: store, Model: model, TaskTimeout: 2 * time.Minute, StartupTimeout: 30 * time.Second, RPC: codexrpc.Config{Command: binary, Dir: workspace}}
+	cfg := codexadapter.Config{Store: store, Model: model, StartupTimeout: 30 * time.Second, RPC: codexrpc.Config{Command: binary, Dir: workspace}}
+	var statusMu sync.Mutex
+	cfg.OnStatus = func(s codexadapter.Status) {
+		statusMu.Lock()
+		defer statusMu.Unlock()
+		_ = json.NewEncoder(os.Stderr).Encode(map[string]any{"event": "worker_status", "status": s})
+	}
+	cfg.OutputSchema = json.RawMessage(`{"type":"object","properties":{"checkpoint":{"type":"string"},"recommendation":{"type":"string"},"risk":{"type":"string"}},"required":["checkpoint","recommendation","risk"],"additionalProperties":false}`)
+	if !structured {
+		cfg.OutputSchema = nil
+	}
 	previous := map[string]answer{}
 	sessions := map[string]string{}
 	proposal := "안건 Welcome to Korea: 국내 여행 정보를 폭넓게 탐색하고 원문으로 연결한다. 자동 공급은 공공기관 데이터로 한정하고 민간은 직접 등록하며 유료 광고를 수익 가설로 둔다. 고객군·데이터 이용 조건·광고 수요·단가는 아직 검증하지 않았다. 이전 대안은 다양한 브랜드 이벤트·혜택 통합검색이다. 사업 범위를 좁히거나 변경할 재량이 있다."
+	if customProposal != "" {
+		proposal = customProposal
+	}
 	for stage := 1; stage <= stages; stage++ {
 		// Close/reopen the runtime store as well as all workers between stages.
 		if stage > 1 {
@@ -140,7 +181,7 @@ func run(ctx context.Context, root string, workers int, model, binary string, pr
 			for _, id := range roles {
 				input := proposal
 				if stage == 1 {
-					input += "\n역할 전용 확인값 " + markers[id] + " 를 기억하라. checkpoint에 이 값을 그대로 넣고 recommendation과 risk에 각 250자 이내 독립 검토를 적어라."
+					input += "\n역할 전용 확인값 " + markers[id] + " 를 기억하라. checkpoint에 이 값을 그대로 넣고 recommendation과 risk에 각 1000자 이내 독립 검토를 적어라."
 				} else {
 					others := map[string]answer{}
 					for other, a := range previous {
@@ -150,7 +191,7 @@ func run(ctx context.Context, root string, workers int, model, binary string, pr
 						}
 					}
 					data, _ := json.Marshal(others)
-					input += "\n다른 부문 검토: " + string(data) + "\n이 역할의 직전 대화에서 받은 전용 확인값을 checkpoint에 복원하라. 현재 입력에는 그 값이 없다. recommendation과 risk에 반론을 검토한 최종 의견을 각 250자 이내로 적어라."
+					input += "\n다른 부문 검토: " + string(data) + "\n이 역할의 직전 대화에서 받은 전용 확인값을 checkpoint에 복원하라. 현재 입력에는 그 값이 없다. recommendation과 risk에 반론을 검토한 최종 의견을 각 1000자 이내로 적어라."
 				}
 				tasks = append(tasks, engine.Task{ID: fmt.Sprintf("s%d-%s", stage, id), Project: project.ID, Role: id, Version: "v1", Instance: "main", Input: input})
 			}
@@ -161,7 +202,7 @@ func run(ctx context.Context, root string, workers int, model, binary string, pr
 				views[id] = a
 			}
 			data, _ := json.Marshal(views)
-			tasks = []engine.Task{{ID: "s3-chair", Project: project.ID, Role: "chair", Version: "v1", Instance: "main", Input: proposal + "\n최종 부문 검토: " + string(data) + "\ncheckpoint는 빈 문자열, recommendation은 결정과 이유, risk는 반대 의견과 다음 검증 조건. 각 400자 이내 JSON."}}
+			tasks = []engine.Task{{ID: "s3-chair", Project: project.ID, Role: "chair", Version: "v1", Instance: "main", Input: proposal + "\n최종 부문 검토: " + string(data) + "\ncheckpoint는 빈 문자열, recommendation은 결정과 이유, risk는 반대 의견과 다음 검증 조건. 각 2000자 이내 JSON."}}
 		}
 		input := make(chan engine.Task, len(tasks))
 		for _, t := range tasks {
