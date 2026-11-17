@@ -9,6 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -21,6 +24,8 @@ type Options struct {
 	Repository, StateDir          string
 	Roles, Workers, Rounds, Queue int
 	Fresh                         bool
+	PayloadBytes                  int
+	ToolDelayMS                   int
 }
 type Report struct {
 	Stats            engine.Stats `json:"stats"`
@@ -30,9 +35,17 @@ type Report struct {
 	ProcessesStarted int64        `json:"processesStarted"`
 	UniquePIDs       int          `json:"uniquePids"`
 	WorkerRoleCounts map[int]int  `json:"workerRoleCounts"`
+	SetupSeconds     float64      `json:"setupSeconds"`
+	PoolSeconds      float64      `json:"poolSeconds"`
+	ExecuteP50MS     float64      `json:"executeP50Ms"`
+	ExecuteP95MS     float64      `json:"executeP95Ms"`
 }
 
 func Run(ctx context.Context, opt Options) (report Report, err error) {
+	started := time.Now()
+	if opt.PayloadBytes < 0 || opt.PayloadBytes > 16384 || opt.ToolDelayMS < 0 || opt.ToolDelayMS > 10000 {
+		return report, fmt.Errorf("invalid fixture payload/delay")
+	}
 	if opt.Roles < 1 || opt.Roles > 400 || opt.Rounds < 1 || opt.Rounds > 20 {
 		return report, fmt.Errorf("roles must be 1..400 and rounds 1..20")
 	}
@@ -78,6 +91,7 @@ func Run(ctx context.Context, opt Options) (report Report, err error) {
 		}
 	}
 	var starts atomic.Int64
+	var timings executionTimings
 	factory := func(slot int) (engine.Executor, error) {
 		agentDir := filepath.Join(store.Root, fmt.Sprintf("agent-%d", slot))
 		if err := os.MkdirAll(agentDir, 0700); err != nil {
@@ -86,16 +100,20 @@ func Run(ctx context.Context, opt Options) (report Report, err error) {
 		cfg := piadapter.Config{Resolver: store, Store: store, TaskTimeout: 30 * time.Second, RPC: pirpc.Config{
 			Command: node, Dir: workspace, Args: []string{cli, "--mode", "rpc", "--offline", "--no-session", "--no-approve", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes", "--no-context-files",
 				"-e", filepath.Join(repo, "experiments/pi/pool-provider.mjs"), "-e", filepath.Join(repo, "adapters/pi/role-extension.mjs"), "--provider", "role-pool", "--model", "deterministic"},
-			Env: []string{"PATH=" + os.Getenv("PATH"), "HOME=" + agentDir, "PI_CODING_AGENT_DIR=" + agentDir, "PI_OFFLINE=1", "ROLE_RUNTIME_STATE=" + store.Root, "ROLE_POOL_ROLES=" + fmt.Sprint(opt.Roles), "ROLE_POOL_LOG=" + filepath.Join(store.Root, fmt.Sprintf("worker-%d.jsonl", slot))},
+			Env: []string{"PATH=" + os.Getenv("PATH"), "HOME=" + agentDir, "PI_CODING_AGENT_DIR=" + agentDir, "PI_OFFLINE=1", "ROLE_RUNTIME_STATE=" + store.Root, "ROLE_POOL_ROLES=" + fmt.Sprint(opt.Roles), "ROLE_POOL_DELAY_MS=" + fmt.Sprint(opt.ToolDelayMS), "ROLE_POOL_LOG=" + filepath.Join(store.Root, fmt.Sprintf("worker-%d.jsonl", slot))},
 		}}
 		create := func() (engine.Executor, error) {
 			cfg.OnProcessStart = func(int) { starts.Add(1) }
 			return piadapter.New(cfg)
 		}
 		if opt.Fresh {
-			return &freshExecutor{create: create}, nil
+			return &timedExecutor{Executor: &freshExecutor{create: create}, timings: &timings}, nil
 		}
-		return create()
+		executor, err := create()
+		if err != nil {
+			return nil, err
+		}
+		return &timedExecutor{Executor: executor, timings: &timings}, nil
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -106,7 +124,7 @@ func Run(ctx context.Context, opt Options) (report Report, err error) {
 			for i := 0; i < opt.Roles; i++ {
 				role := fmt.Sprintf("role-%02d", i)
 				id := fmt.Sprintf("round-%02d-%s", round, role)
-				input, _ := json.Marshal(map[string]any{"id": id, "project": "project-one", "role": role, "round": round})
+				input, _ := json.Marshal(map[string]any{"id": id, "project": "project-one", "role": role, "round": round, "padding": strings.Repeat("x", opt.PayloadBytes)})
 				task := engine.Task{ID: id, Project: "project-one", Role: role, Version: "v1", Instance: "default", Input: string(input)}
 				select {
 				case tasks <- task:
@@ -119,6 +137,8 @@ func Run(ctx context.Context, opt Options) (report Report, err error) {
 	pids := map[int]bool{}
 	workerRoles := map[int]map[string]bool{}
 	pool := engine.Pool{Workers: opt.Workers, QueueSize: opt.Queue, Store: store, Factory: factory}
+	report.SetupSeconds = time.Since(started).Seconds()
+	poolStarted := time.Now()
 	report.Stats, err = pool.Run(ctx, tasks, func(out engine.Outcome) error {
 		if out.Status != "succeeded" {
 			return fmt.Errorf("task %s %s: %s", out.Task.ID, out.Status, out.Error)
@@ -133,6 +153,8 @@ func Run(ctx context.Context, opt Options) (report Report, err error) {
 		workerRoles[out.Result.Worker][out.Task.Role] = true
 		return nil
 	})
+	report.PoolSeconds = time.Since(poolStarted).Seconds()
+	report.ExecuteP50MS, report.ExecuteP95MS = timings.percentiles()
 	report.Roles, report.Rounds, report.ProcessesStarted, report.UniquePIDs = opt.Roles, opt.Rounds, starts.Load(), len(pids)
 	report.Mode = "reuse"
 	if opt.Fresh {
@@ -161,3 +183,32 @@ func (f *freshExecutor) Execute(ctx context.Context, t engine.Task) (engine.Resu
 	return e.Execute(ctx, t)
 }
 func (f *freshExecutor) Close() error { return nil }
+
+// Demo-only instrumentation: bounded by the fixture's maximum 8000 tasks, not
+// retained in the production scheduler. Execute latency excludes queue/receipts.
+type executionTimings struct {
+	mu     sync.Mutex
+	values []float64
+}
+type timedExecutor struct {
+	engine.Executor
+	timings *executionTimings
+}
+
+func (e *timedExecutor) Execute(ctx context.Context, t engine.Task) (engine.Result, error) {
+	start := time.Now()
+	result, err := e.Executor.Execute(ctx, t)
+	e.timings.mu.Lock()
+	e.timings.values = append(e.timings.values, float64(time.Since(start))/float64(time.Millisecond))
+	e.timings.mu.Unlock()
+	return result, err
+}
+func (t *executionTimings) percentiles() (float64, float64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if len(t.values) == 0 {
+		return 0, 0
+	}
+	sort.Float64s(t.values)
+	return t.values[(len(t.values)-1)*50/100], t.values[(len(t.values)-1)*95/100]
+}

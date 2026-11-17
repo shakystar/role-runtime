@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "platform": "Darwin",
+  "hardware": {
+    "memoryBytes": 17179869184,
+    "logicalCPUs": 12,
+    "physicalCPUs": 6
+  },
+  "sampleIntervalSeconds": 0.2,
+  "plan": "wait",
+  "workerFilter": "2",
+  "plannedCases": 1,
+  "complete": true,
+  "node": "v24.16.0",
+  "commitBeforeRun": "a22ac8ac9be7bddb2b8d8d4f1770e6225b3526da",
+  "worktreeModified": true,
+  "startedUTC": "2026-11-17T05:40:21Z",
+  "results": [
+    {
+      "group": "wait250",
+      "roles": 40,
+      "rounds": 2,
+      "workers": 2,
+      "toolDelayMS": 250,
+      "elapsedSeconds": 19.086873788153753,
+      "tasksPerSecond": 4.191362131270125,
+      "poolTasksPerSecond": 4.649010914367977,
+      "peakTreeRSSMiB": 337.34375,
+      "sampledCPUSeconds": 3.9400000000000004,
+      "meanCPUCores": 0.20642458496505367,
+      "maxTreeProcesses": 3,
+      "samples": 82,
+      "runtime": {
+        "stats": {
+          "submitted": 80,
+          "succeeded": 80,
+          "failed": 0,
+          "rejected": 0,
+          "maxActive": 2,
+          "maxQueued": 32,
+          "workers": 2
+        },
+        "roles": 40,
+        "rounds": 2,
+        "mode": "reuse",
+        "processesStarted": 2,
+        "uniquePids": 2,
+        "workerRoleCounts": {
+          "0": 20,
+          "1": 20
+        },
+        "setupSeconds": 1.619701664,
+        "poolSeconds": 17.207961322,
+        "executeP50Ms": 318.040413,
+        "executeP95Ms": 452.707991
+      },
+      "rssSeries": [
+        {
+          "seconds": 0.032,
+          "rssMiB": 3.012,
+          "processes": 1
+        },
+        {
+          "seconds": 1.186,
+          "rssMiB": 3.797,
+          "processes": 1
+        },
+        {
+          "seconds": 2.112,
+          "rssMiB": 170.199,
+          "processes": 3
+        },
+        {
+          "seconds": 3.04,
+          "rssMiB": 228.352,
+          "processes": 3
+        },
+        {
+          "seconds": 4.207,
+          "rssMiB": 231.059,
+          "processes": 3
+        },
+        {
+          "seconds": 5.136,
+          "rssMiB": 245.648,
+          "processes": 3
+        },
+        {
+          "seconds": 6.075,
+          "rssMiB": 262.609,
+          "processes": 3
+        },
+        {
+          "seconds": 7.007,
+          "rssMiB": 268.18,
+          "processes": 3
+        },
+        {
+          "seconds": 8.169,
+          "rssMiB": 272.816,
+          "processes": 3
+        },
+        {
+          "seconds": 9.093,
+          "rssMiB": 275.934,
+          "processes": 3
+        },
+        {
+          "seconds": 10.021,
+          "rssMiB": 278.871,
+          "processes": 3
+        },
+        {
+          "seconds": 11.19,
+          "rssMiB": 284.098,
+          "processes": 3
+        },
+        {
+          "seconds": 12.125,
+          "rssMiB": 300.113,
+          "processes": 3
+        },
+        {
+          "seconds": 13.061,
+          "rssMiB": 325.051,
+          "processes": 3
+        },
+        {
+          "seconds": 14.227,
+          "rssMiB": 335.984,
+          "processes": 3
+        },
+        {
+          "seconds": 15.162,
+          "rssMiB": 336.312,
+          "processes": 3
+        },
+        {
+          "seconds": 16.094,
+          "rssMiB": 336.867,
+          "processes": 3
+        },
+        {
+          "seconds": 17.025,
+          "rssMiB": 336.965,
+          "processes": 3
+        },
+        {
+          "seconds": 18.192,
+          "rssMiB": 337.324,
+          "processes": 3
+        }
+      ]
+    }
+  ],
+  "recommendation": {
+    "rule": "smallest measured worker count within 95% of best median end-to-end throughput under budgets",
+    "memoryBudgetMiB": 4096.0,
+    "meanCPUBudgetCores": 6.0,
+    "recommendedWorkers": null,
+    "candidates": [],
+    "scope": "synthetic local fixture only; no runtime auto-scaling"
+  }
+}

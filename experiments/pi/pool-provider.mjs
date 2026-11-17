@@ -18,7 +18,7 @@ export default function (pi) {
         await new Promise((resolve, reject) => {
           if (signal?.aborted) return reject(Error("aborted"));
           const abort = () => { clearTimeout(timer); reject(Error("aborted")); };
-          const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, 15);
+          const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, Number(process.env.ROLE_POOL_DELAY_MS) || 15);
           signal?.addEventListener("abort", abort, { once: true });
         });
         return { content: [{ type: "text", text: `executed:${name}` }], details: {} };

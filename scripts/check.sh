@@ -12,5 +12,6 @@ fi
 if [ "${ROLE_RUNTIME_INTEGRATION:-0}" = "1" ]; then
   ./scripts/go.sh test -race -tags integration -count=1 ./internal/pispike
 fi
+python3 -B -m unittest discover -s scripts -p "test_*.py"
 npm --prefix experiments/pi test
 git diff --check

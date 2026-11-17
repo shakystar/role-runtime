@@ -66,3 +66,15 @@ npm --prefix experiments/pi test
 ## 범위 밖
 
 RAM 절감률, GC 후 실제 메모리 회수, 장시간 캐시 증가, 취소 중인 외부 도구 종료, 악의적 도구 호출, 장애 도중 exactly-once, 토큰 예산, 전체 대화 페이징, 유료 모델 품질은 아직 검증하지 않았다. 두 후보의 테스트 실행 시간을 성능 비교 수치로 사용하지 않는다.
+
+## 자원 계측
+
+`scripts/benchmark.py`는 Python 3 표준 라이브러리로 실제 Go+pi 프로세스 트리를 측정한다. 별도 모델 키는 필요하지 않다. 프로세스 조회가 가능한 macOS/Linux에서 실행하며 측정 중 다른 테스트를 동시에 실행하지 않는다.
+
+```sh
+./scripts/go.sh build -o bin/role-runtime ./cmd/role-runtime
+python3 scripts/benchmark.py --plan matrix
+python3 scripts/benchmark.py --plan extended --output artifacts/resource-extended.json
+```
+
+데모의 `--payload-bytes`는 합성 입력 크기, `--tool-delay-ms`는 합성 도구 대기 시간을 바꾼다. 결과 필드와 한계는 [자원 설정 설계](../docs/design/resource-sizing.md), 측정 결과는 [보고서](../docs/research/resource-results.md)를 따른다. 자동 워커 확장·축소는 구현하지 않았다.

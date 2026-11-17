@@ -41,6 +41,8 @@ func main() {
 	flags.IntVar(&opt.Workers, "workers", 4, "active worker count")
 	flags.IntVar(&opt.Rounds, "rounds", 2, "tasks per role")
 	flags.IntVar(&opt.Queue, "queue", 8, "pending queue bound")
+	flags.IntVar(&opt.PayloadBytes, "payload-bytes", 0, "synthetic input padding per task (0..16384)")
+	flags.IntVar(&opt.ToolDelayMS, "tool-delay-ms", 15, "synthetic tool wait in milliseconds")
 	flags.BoolVar(&opt.Fresh, "fresh", false, "baseline: start a fresh pi process per task")
 	_ = flags.Parse(os.Args[2:])
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
