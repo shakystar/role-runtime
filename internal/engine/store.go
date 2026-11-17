@@ -14,12 +14,14 @@ import (
 	"time"
 )
 
-// Store is a local, single-owner file store. It is not a durable task scheduler:
-// receipts survive restart, but incomplete work is never automatically replayed.
+// Store is a local, single-owner file store. The original Pool stores receipts;
+// CooperativePool additionally persists ready/waiting state and transactional
+// outboxes. Interrupted running work is never automatically replayed.
 type Store struct {
-	Root string
-	lock *os.File
-	mu   sync.Mutex
+	Root        string
+	lock        *os.File
+	mu          sync.Mutex
+	cooperating bool
 }
 
 func OpenStore(root string) (*Store, error) {
@@ -27,7 +29,7 @@ func OpenStore(root string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, dir := range []string{"", "roles", "projects", "sessions", "tasks", "uncertain"} {
+	for _, dir := range []string{"", "roles", "projects", "sessions", "tasks", "uncertain", "cooperation", "mailbox"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0700); err != nil {
 			return nil, err
 		}

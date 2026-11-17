@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/shakystar/role-runtime/internal/engine"
@@ -20,6 +21,7 @@ type Config struct {
 	OnProcessStart func(int)
 }
 type Adapter struct {
+	mu     sync.Mutex
 	cfg    Config
 	client *pirpc.Client
 	Starts int
@@ -56,13 +58,17 @@ func (a *Adapter) start(parent context.Context) error {
 		client.Close()
 		return err
 	}
+	a.mu.Lock()
 	a.client = client
+	a.mu.Unlock()
 	return nil
 }
 func (a *Adapter) Close() error {
 	if a.client != nil {
 		err := a.client.Close()
+		a.mu.Lock()
 		a.client = nil
+		a.mu.Unlock()
 		return err
 	}
 	return nil
@@ -114,4 +120,16 @@ func (a *Adapter) Execute(parent context.Context, t engine.Task) (result engine.
 		}
 	}
 	return result, err
+}
+
+// Heartbeat probes the actual RPC process. It is safe concurrently with Execute;
+// Close remains owned by the execution worker after that execution has stopped.
+func (a *Adapter) Heartbeat(ctx context.Context) error {
+	a.mu.Lock()
+	client := a.client
+	a.mu.Unlock()
+	if client == nil {
+		return errors.New("pi process unavailable")
+	}
+	return client.Call(ctx, "get_state", nil, nil)
 }

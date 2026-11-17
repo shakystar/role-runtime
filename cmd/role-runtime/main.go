@@ -13,8 +13,24 @@ import (
 )
 
 func main() {
+	if len(os.Args) >= 2 && os.Args[1] == "cooperate-demo" {
+		flags := flag.NewFlagSet("cooperate-demo", flag.ExitOnError)
+		repo := flags.String("repo", ".", "repository root")
+		_ = flags.Parse(os.Args[2:])
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		report, err := pispike.RunCooperation(ctx, *repo)
+		_ = json.NewEncoder(os.Stdout).Encode(report)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) < 2 || os.Args[1] != "demo" {
-		fmt.Fprintln(os.Stderr, "usage: role-runtime demo [--roles 40 --workers 4 --rounds 2 --queue 8 --fresh]")
+		fmt.Fprintln(os.Stderr, "usage: role-runtime cooperate-demo [--repo .] | demo [--roles 40 --workers 4 --rounds 2 --queue 8 --fresh]")
 		os.Exit(2)
 	}
 	flags := flag.NewFlagSet("demo", flag.ExitOnError)

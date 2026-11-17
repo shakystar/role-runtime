@@ -9,5 +9,8 @@ if [ -n "$task_unformatted" ]; then
 fi
 ./scripts/go.sh vet ./...
 ./scripts/go.sh test -race -count=1 ./...
+if [ "${ROLE_RUNTIME_INTEGRATION:-0}" = "1" ]; then
+  ./scripts/go.sh test -race -tags integration -count=1 ./internal/pispike
+fi
 npm --prefix experiments/pi test
 git diff --check

@@ -6,7 +6,7 @@
 
 예를 들어 DTO, 컨트롤러 와이어링, DB 설계, 테스트 픽처, QA 역할 40개를 정의하더라도 실행 워커는 4개로 유지한다. 역할마다 프로세스를 상주시킬 필요 없이, 실행 시점에 필요한 컨텍스트만 구성하는 것이 목표다.
 
-**현재 상태: Go RPC 어댑터와 제한된 워커 풀 구현. 실제 pi 프로세스 4개로 역할 40개의 작업 80개를 처리하는 합성 통합 검증을 통과했다. 생산용 런타임은 아직 아니다.**
+**현재 상태: Go RPC·제한된 워커 풀에 heartbeat, 영속 SMS, 대기·재개를 구현했다. 실제 pi 프로세스 4개로 40역할 실행과 역할 간 요청·응답을 합성 모델로 검증했다. 생산용 런타임은 아직 아니다.**
 
 ## 실행 모델
 
@@ -77,6 +77,15 @@ npm --prefix experiments/pi ci --ignore-scripts --no-audit --no-fund
 
 데모는 실제 pi에 합성 모델을 연결한다. `--fresh`는 작업마다 프로세스를 생성하는 비교군이다. `--state`를 지정하면 기록을 보존하며 같은 작업 ID의 재실행은 거절한다.
 
-[Sprint 2 결과](docs/research/sprint-2-results.md)에 검증 범위와 한계를 기록했다. 다음은 [heartbeat·역할 메일박스·대기/재개](docs/design/messaging-backlog.md)다. [DB 기반 메모리 페이징](docs/design/paging-backlog.md)은 후속 단계이며 메모리·토큰 절감은 아직 검증하지 않았다.
+[Sprint 2 결과](docs/research/sprint-2-results.md)에 검증 범위와 한계를 기록했다. [협업 실행 계약](docs/design/cooperation.md)과 [heartbeat·SMS 검증 결과](docs/research/cooperation-results.md)를 추가했다. [DB 기반 메모리 페이징](docs/design/paging-backlog.md)은 후속 단계이며 메모리·토큰 절감은 아직 검증하지 않았다.
+
+협업 데모와 전체 통합 검사는 다음과 같이 실행한다.
+
+```sh
+./scripts/go.sh run ./cmd/role-runtime cooperate-demo
+ROLE_RUNTIME_INTEGRATION=1 ./scripts/check.sh
+```
+
+SMS는 역할 주소와 correlation별 영속 메시지다. 대기는 모델 턴을 끝내고 체크포인트를 저장하는 협력적 방식이다. 장애 난 실행은 자동 재시도하지 않고 격리한다.
 
 프로젝트 라이선스는 미정이다. 외부 코드를 복사하거나 배포하기 전에 대상 버전의 라이선스와 고지 의무를 검토한다.
