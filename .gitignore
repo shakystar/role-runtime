@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+/bin/
+/dist/
+/var/
+/artifacts/
+/scratch/
+*.test
+coverage.out
