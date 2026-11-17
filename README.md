@@ -6,7 +6,7 @@
 
 예를 들어 DTO, 컨트롤러 와이어링, DB 설계, 테스트 픽처, QA 역할 40개를 정의하더라도 실행 워커는 4개로 유지한다. 역할마다 프로세스를 상주시킬 필요 없이, 실행 시점에 필요한 컨텍스트만 구성하는 것이 목표다.
 
-**현재 상태: Sprint 1 재사용 실험 완료. pi/Eino의 역할 전환·기록 복원을 합성 모델로 검증했다. 생산용 런타임은 아직 없다.**
+**현재 상태: Go RPC 어댑터와 제한된 워커 풀 구현. 실제 pi 프로세스 4개로 역할 40개의 작업 80개를 처리하는 합성 통합 검증을 통과했다. 생산용 런타임은 아직 아니다.**
 
 ## 실행 모델
 
@@ -38,7 +38,7 @@
 
 핵심 런타임은 Go로 진행하며, 첫 백엔드는 **pi RPC + 역할 확장**을 사용한다. 하네스 전체를 재작성하지 않는다. [선택 근거](docs/decisions/0002-pi-first-adapter.md)는 기능 검증에 기반하며 성능 우위를 의미하지 않는다.
 
-- **pi 1.5.2:** 실제 RPC에서 A → B → A, 동일 프로젝트의 역할·도구 격리, 재시작 후 복원 통과. Go RPC 어댑터는 Sprint 2에서 구현한다.
+- **pi 1.5.2:** 실제 RPC에서 A → B → A, 동일 프로젝트의 역할·도구 격리, 재시작 후 복원 통과. Go RPC 어댑터와 역할 전환 확장을 구현했다.
 - **Eino v0.9.23:** 같은 합성 fixture 통과. Go 내부 실행 비교군과 대체 후보로 유지한다.
 - **MemGPT / Letta:** 현재 구현이 Letta Code로 이동했음을 확인했다. 기억 계층의 독립적 재사용은 후속 실험으로 남긴다.
 
@@ -68,6 +68,15 @@ npm --prefix experiments/pi ci --ignore-scripts --no-audit --no-fund
 ./scripts/check.sh
 ```
 
-현재 코드는 `experiments/`에 있다. 40개 역할·4개 워커, 메모리 상한, 토큰 예산과 실행 중 취소는 다음 단계의 검증 대상이다.
+핵심 코드는 `internal/`, CLI는 `cmd/role-runtime/`, pi 역할 확장은 `adapters/pi/`에 있다.
+
+```sh
+./scripts/go.sh run ./cmd/role-runtime demo --roles 40 --workers 4 --rounds 2 --queue 8
+./scripts/go.sh test -race -tags integration -count=1 ./internal/pispike
+```
+
+데모는 실제 pi에 합성 모델을 연결한다. `--fresh`는 작업마다 프로세스를 생성하는 비교군이다. `--state`를 지정하면 기록을 보존하며 같은 작업 ID의 재실행은 거절한다.
+
+[Sprint 2 결과](docs/research/sprint-2-results.md)에 검증 범위와 한계를 기록했다. 다음은 [heartbeat·역할 메일박스·대기/재개](docs/design/messaging-backlog.md)다. [DB 기반 메모리 페이징](docs/design/paging-backlog.md)은 후속 단계이며 메모리·토큰 절감은 아직 검증하지 않았다.
 
 프로젝트 라이선스는 미정이다. 외부 코드를 복사하거나 배포하기 전에 대상 버전의 라이선스와 고지 의무를 검토한다.
