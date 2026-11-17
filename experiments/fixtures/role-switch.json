@@ -1,0 +1,13 @@
+{
+  "roles": {
+    "dto": {"instruction": "ROLE_DTO_ONLY", "tool": "dto_probe"},
+    "qa": {"instruction": "ROLE_QA_ONLY", "tool": "qa_probe"}
+  },
+  "steps": [
+    {"project":"one", "role":"dto", "prompt":"DTO_ONE_FIRST", "required":[], "forbidden":["QA_ONE_FIRST", "DTO_TWO_FIRST"]},
+    {"project":"one", "role":"qa", "prompt":"QA_ONE_FIRST", "required":[], "forbidden":["DTO_ONE_FIRST", "DTO_TWO_FIRST"]},
+    {"project":"one", "role":"dto", "prompt":"DTO_ONE_SECOND", "required":["DTO_ONE_FIRST"], "forbidden":["QA_ONE_FIRST", "DTO_TWO_FIRST"]},
+    {"project":"two", "role":"dto", "prompt":"DTO_TWO_FIRST", "required":[], "forbidden":["DTO_ONE_FIRST", "DTO_ONE_SECOND", "QA_ONE_FIRST"]},
+    {"project":"one", "role":"dto", "prompt":"DTO_ONE_AFTER_RESTART", "required":["DTO_ONE_FIRST", "DTO_ONE_SECOND"], "forbidden":["QA_ONE_FIRST", "DTO_TWO_FIRST"], "restart":true}
+  ]
+}

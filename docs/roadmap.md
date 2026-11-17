@@ -10,15 +10,21 @@
 | S0-2 | 후보별 문서 조사와 검증 질문 | 예비 조사 완료 | research/reuse-candidates.md |
 | S0-3 | 비교군·수용 기준 설계 | 초안 완료 | validation.md |
 | S0-4 | 로컬 Git·origin·main 준비 | 완료 | 최초 커밋 42b8697, origin/main 푸시 및 upstream 설정 성공 |
-| S1-1 | pi/Eino/Letta 버전·라이선스·확장 지점 조사 | 대기 | 버전 고정된 비교표 |
-| S1-2 | Go 도구체인과 최소 개발 검사 구성 | 대기 | go version, 빌드/검사 로그 |
-| S1-3 | pi A → B → A 기술 실험 | 대기 | 재현 명령, 상태 격리 로그 |
-| S1-4 | Eino 동일 조건 기술 실험 | 대기 | 재현 명령, 상태 격리 로그 |
-| S1-5 | 하네스 선택 ADR | 대기 | 비교 결과와 채택 이유 |
+| S1-1 | pi/Eino/Letta 버전·라이선스·확장 지점 조사 | 완료 | THIRD_PARTY.md, research/sprint-1-results.md |
+| S1-2 | Go 도구체인과 최소 개발 검사 구성 | 완료 | Go 1.26.11, scripts/check.sh |
+| S1-3 | pi A → B → A 기술 실험 | 완료: 합성 모델 | experiments/pi/spike.test.mjs |
+| S1-4 | Eino 동일 조건 기술 실험 | 완료: 합성 모델 | experiments/eino/spike_test.go |
+| S1-5 | 하네스 선택 ADR | 완료 | decisions/0002-pi-first-adapter.md |
+| S2-1 | Go RPC 클라이언트와 완료·취소 계약 | 대기 | ID 상관관계, agent_settled, 종료·timeout 테스트 |
+| S2-2 | 작업·역할 버전·상태 저장 계약 | 대기 | 잘못된 참조·중복 실행·프로젝트 격리 테스트 |
+| S2-3 | K 제한 워커 풀과 큐·버퍼 상한 | 대기 | 역할 40개·K=4 합성 스트레스 테스트 |
+| S2-4 | pi 어댑터 통합 및 기존 하네스 비교군 | 대기 | 같은 fixture와 제한 실행 B1 재현 |
 
-현재 확인한 작업 환경에는 `go` 명령이 없다. 아직 도구체인을 설치하지 않았으며 Go 버전은 후보 의존성 요구사항 확인 후 고정한다.
+Go 1.26.11을 프로젝트 내부에 설치해 검증했다. 시스템 설정은 변경하지 않았다. Go 1.27.4의 Sonic fallback 경고 때문에 지원 범위에 맞췄다. 실행 방법과 검증 한계는 [실험 안내](../experiments/README.md) 및 [Sprint 1 결과](research/sprint-1-results.md)에 기록했다.
 
 ## Sprint 1 — 재사용 가능성
+
+완료: 합성 모델을 연결한 실제 하네스 기능 검증. LLM 품질·비용·메모리 효율 검증은 아님.
 
 목표: 기존 하네스에서 역할 교체·복원이 가능한지 확인한다.
 

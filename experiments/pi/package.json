@@ -1,0 +1,15 @@
+{
+  "name": "role-runtime-pi-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test spike.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@earendil-works/pi-ai": "1.5.2"
+  }
+}
