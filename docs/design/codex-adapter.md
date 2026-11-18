@@ -15,7 +15,11 @@
 
 ## 첫 지원 범위
 
-`Role.Tools=["advisory"]`만 받는다. 공급된 자료로 판단하는 사전 심의용이며 쓰기·외부 연락·도구 작업은 지침으로 금지한다. read-only sandbox 및 approvalPolicy=never, shell/apps/plugins/browser/computer/image 등 비활성화 설정, config/read에서 확인한 MCP 서버별 비활성화를 적용한다. 관찰된 외부 도구 실행 알림도 실패로 처리한다.
+`Role.Tools=["advisory"]`는 공급된 자료로 판단하는 사전 심의용이다. 쓰기·외부 연락·도구 작업은 지침으로 금지한다. read-only sandbox 및 approvalPolicy=never, shell/apps/plugins/browser/computer/image 등 비활성화 설정, config/read에서 확인한 MCP 서버별 비활성화를 적용한다. 관찰된 외부 도구 실행 알림도 실패로 처리한다.
+
+`Role.Tools=["web-research"]`는 웹 조사용이다. thread start/resume마다 `web_search=live`를 설정하고 `webSearch` 항목만 추가 허용한다. advisory는 같은 프로세스에서도 `web_search=disabled`를 명시한다. 두 프로필을 섞거나 다른 도구를 지정하면 거절한다. 읽은 외부 자료는 지침이 아닌 데이터로 취급하도록 하고, 로그인·게시·연락·파일 변경을 허용하지 않는다.
+
+웹 완료 이벤트는 thread/turn에 맞춰 관찰하며 item ID로 중복 집계하지 않는다. 한 turn에서 최대 256개 ID만 보관한다. 상태 콜백에는 완료 수와 search/openPage/findInPage 종류별 수만 추가하고 검색어·URL·본문은 넣지 않는다. 검색 호출 수는 검색어 개수와 같지 않다. 완료 이벤트가 페이지 접근 성공 또는 인용 정확성을 보증하지는 않는다. 자료의 접근 수준과 근거 요약은 모델의 산출물에 따로 남긴다.
 
 이는 모든 내장 도구에 대한 완전한 allowlist나 OS 보안 격리가 아니다. 이미 실행된 도구를 알림으로 탐지하는 것은 부작용을 되돌리지 못한다. 사용자 전역 설정·인증은 Codex가 읽는다. 설정 값·인증 원문을 보고서에 출력하지 않는다. 실제 개발용 쓰기 권한·도구 정책은 아직 지원하지 않는다. [heartbeat 관찰 및 CooperativePool SMS 연결](codex-cooperation.md)을 별도 추가했다.
 

@@ -1,0 +1,62 @@
+{
+  "outputMode": "backend-schema",
+  "completed": true,
+  "researchEvidenceReady": true,
+  "workers": 1,
+  "processesStarted": 1,
+  "waitingObserved": [
+    "reviewer",
+    "data-research"
+  ],
+  "handoffHashes": {
+    "community-v1": "564a6df58ba10bc292ed5686206b3d6f2111744467e5f47eede7aa82c9a05f96",
+    "data-v1": "0a7c9a60507af55d53ebe122a4ec739a6a95c01829f58893d61e9d8eee2e4689"
+  },
+  "webActivity": {
+    "community-research": {
+      "completed": 4,
+      "queries": 3,
+      "pageOpens": 1,
+      "pageFinds": 0
+    },
+    "data-research": {
+      "completed": 6,
+      "queries": 2,
+      "pageOpens": 2,
+      "pageFinds": 1
+    },
+    "reviewer": {
+      "completed": 0,
+      "queries": 0,
+      "pageOpens": 0,
+      "pageFinds": 0
+    }
+  },
+  "stats": {
+    "steps": 5,
+    "completed": 3,
+    "suspended": 2,
+    "resumed": 2,
+    "maxActive": 1,
+    "heartbeats": 14
+  },
+  "usage": {
+    "scope": "successful-turn-last-notification",
+    "inputTokens": 112036,
+    "outputTokens": 4071,
+    "cachedInputTokens": 83456,
+    "known": true,
+    "completedTurns": 5,
+    "measuredTurns": 5
+  },
+  "seconds": 167.956579529,
+  "artifactStorage": "versioned document JSON in durable SMS body; no prior standalone document file",
+  "date": "2026-11-18",
+  "readbackVerified": true,
+  "coordinatorSuppliedEvidence": false,
+  "communityBodyReadReported": 4,
+  "dataBodyReadReported": 5,
+  "gyeongjuDatasetRowsAcquiredReported": 0,
+  "businessDecision": "narrower test",
+  "scope": "Role-executed web research; access levels and row acquisition are model reports, not independently fetched by coordinator. No market validation, periodic collection or memory-saving measurement."
+}

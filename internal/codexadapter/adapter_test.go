@@ -79,6 +79,15 @@ func TestCodexAdapterProcess(t *testing.T) {
 			json.Unmarshal(req.Params["cwd"], &cwd)
 			json.Unmarshal(req.Params["baseInstructions"], &instructions)
 			json.Unmarshal(req.Params["threadId"], &id)
+			var config map[string]any
+			json.Unmarshal(req.Params["config"], &config)
+			wantSearch := "disabled"
+			if strings.Contains(instructions, "Web research task:") {
+				wantSearch = "live"
+			}
+			if config["web_search"] != wantSearch || config["features.shell_tool"] != false {
+				os.Exit(9)
+			}
 			if id == "" {
 				id = "thread-" + engine.Digest(instructions)[:12]
 			}
@@ -111,6 +120,30 @@ func TestCodexAdapterProcess(t *testing.T) {
 				continue
 			}
 			notify := func(method string, p any) { send(map[string]any{"method": method, "params": p}) }
+			var webFinalItems []any
+			if mode == "web-tool" || mode == "web-limit" || mode == "web-no-id" {
+				webItem := func(itemID, action string) map[string]any {
+					return map[string]any{"id": itemID, "type": "webSearch", "query": "private-query-secret", "action": map[string]any{"type": action, "url": "https://private-url-secret.example"}, "results": []any{map[string]any{"private": "private-result-secret"}}}
+				}
+				for _, pair := range [][2]string{{"other-thread", "turn-1"}, {id, "other-turn"}} {
+					notify("item/completed", map[string]any{"threadId": pair[0], "turnId": pair[1], "item": webItem("irrelevant", "search")})
+				}
+				if mode == "web-limit" {
+					for i := 0; i < 257; i++ {
+						webFinalItems = append(webFinalItems, webItem(fmt.Sprint(i), "search"))
+					}
+				} else if mode == "web-no-id" {
+					webFinalItems = []any{webItem("", "search")}
+				}
+				w := webItem("search-1", "search")
+				notify("item/started", map[string]any{"threadId": id, "turnId": "turn-1", "item": w})
+				for i := 0; i < 2; i++ {
+					notify("item/completed", map[string]any{"threadId": id, "turnId": "turn-1", "item": w})
+				}
+				if mode == "web-tool" {
+					webFinalItems = []any{w, webItem("open-1", "openPage"), webItem("find-1", "findInPage"), webItem("other-1", "private-action-secret")}
+				}
+			}
 			if mode == "backend-errors" {
 				for i, code := range []any{"serverOverloaded", map[string]any{"responseStreamDisconnected": map[string]any{"httpStatusCode": 503, "private": "private-error-secret"}}, "private-error-secret"} {
 					notify("error", map[string]any{"threadId": id, "turnId": "turn-1", "willRetry": i != 2, "error": map[string]any{"codexErrorInfo": code, "message": "private-error-secret", "additionalDetails": "private-error-secret", "misalignment": map[string]any{"detailedExplanation": "private-error-secret"}}})
@@ -128,7 +161,7 @@ func TestCodexAdapterProcess(t *testing.T) {
 			if input[0].Text == "fail" {
 				status = "failed"
 			}
-			notify("turn/completed", map[string]any{"threadId": id, "turn": map[string]any{"id": "turn-1", "status": status, "items": []any{map[string]any{"type": "agentMessage", "phase": "final_answer", "text": id + ":" + input[0].Text}}}})
+			notify("turn/completed", map[string]any{"threadId": id, "turn": map[string]any{"id": "turn-1", "status": status, "items": append(webFinalItems, map[string]any{"type": "agentMessage", "phase": "final_answer", "text": id + ":" + input[0].Text})}})
 			continue
 		case "thread/unsubscribe":
 			result = map[string]any{"status": "unsubscribed"}
@@ -478,5 +511,107 @@ func TestUnsupportedToolPolicy(t *testing.T) {
 	task.Role = "shell"
 	if _, err = a.Execute(context.Background(), task); err == nil {
 		t.Fatal(fmt.Errorf("unsupported tool policy accepted"))
+	}
+}
+
+func TestResearchProfileValidation(t *testing.T) {
+	for _, tools := range [][]string{nil, {}, {"shell"}, {"advisory", "web-research"}, {"web-research", "web-research"}} {
+		if _, err := researchProfile(tools); err == nil {
+			t.Fatalf("accepted unsupported profile %v", tools)
+		}
+	}
+	for _, name := range []string{"advisory", "web-research"} {
+		enabled, err := researchProfile([]string{name})
+		if err != nil || enabled != (name == "web-research") {
+			t.Fatal(name, enabled, err)
+		}
+	}
+}
+
+func TestWebResearchSwitchResumeAndPrivateTelemetry(t *testing.T) {
+	cfg, task := fixture(t)
+	if err := cfg.Store.RegisterRole(engine.Role{ID: "research", Version: "v1", Instruction: "Research", Tools: []string{"web-research"}}); err != nil {
+		t.Fatal(err)
+	}
+	var statuses []Status
+	cfg.OnStatus = func(s Status) { statuses = append(statuses, s) }
+	a, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	ctx := context.Background()
+	first, err := a.Execute(ctx, task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, role := range []string{"research", "beta", "research", "alpha"} {
+		task.ID = fmt.Sprintf("switch-%d", i)
+		task.Role = role
+		task.Input = "hello"
+		if role == "research" {
+			task.Input = "web-tool"
+		}
+		got, err := a.Execute(ctx, task)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.PID != first.PID || a.Starts != 1 {
+			t.Fatal("role switch restarted process")
+		}
+		last := statuses[len(statuses)-1]
+		if role == "research" {
+			if last.WebSearchCount != 4 || last.WebSearchQueries != 1 || last.WebPageOpens != 1 || last.WebPageFinds != 1 || last.LastWebAction != "other" || last.LastProgress.IsZero() {
+				t.Fatalf("incorrect web counts %+v", last)
+			}
+		} else if last.WebSearchCount != 0 {
+			t.Fatal("research telemetry leaked into advisory role")
+		}
+	}
+	b, _ := json.Marshal(statuses)
+	if strings.Contains(string(b), "private-") {
+		t.Fatal("web metadata leaked query, URL, results or unknown action")
+	}
+}
+
+func TestRoleToolRejection(t *testing.T) {
+	for _, tc := range []struct{ role, mode string }{{"alpha", "web-tool"}, {"research", "tool"}} {
+		t.Run(tc.role, func(t *testing.T) {
+			cfg, task := fixture(t)
+			if err := cfg.Store.RegisterRole(engine.Role{ID: "research", Version: "v1", Instruction: "Research", Tools: []string{"web-research"}}); err != nil {
+				t.Fatal(err)
+			}
+			task.Role = tc.role
+			task.Input = tc.mode
+			a, err := New(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer a.Close()
+			if _, err = a.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "unsupported tool") {
+				t.Fatalf("tool not rejected: %v", err)
+			}
+		})
+	}
+}
+
+func TestWebTelemetryBounded(t *testing.T) {
+	for _, mode := range []string{"web-limit", "web-no-id"} {
+		t.Run(mode, func(t *testing.T) {
+			cfg, task := fixture(t)
+			if err := cfg.Store.RegisterRole(engine.Role{ID: "research", Version: "v1", Instruction: "Research", Tools: []string{"web-research"}}); err != nil {
+				t.Fatal(err)
+			}
+			task.Role = "research"
+			task.Input = mode
+			a, err := New(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer a.Close()
+			if _, err = a.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "web search") {
+				t.Fatalf("missing bounded telemetry rejection: %v", err)
+			}
+		})
 	}
 }

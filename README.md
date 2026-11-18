@@ -96,6 +96,8 @@ SMS는 역할 주소와 correlation별 영속 메시지다. 대기는 모델 턴
 
 경주 공식 자료를 공급하는 [발견 → 검증 → 심의 실험](experiments/event-search/gyeongju-evidence-pipeline.md)은 세 역할의 문서 대기와 두 번의 SMS 전달을 연결한다. 웹 수집은 외부 공급자가 담당하며, 역할은 제공된 근거를 검토한다.
 
+후속 [커뮤니티 → 데이터 조사 → 심의](experiments/event-search/community-data-pipeline.md)는 `web-research` 역할이 직접 검색한다. 실제 3역할·1워커·두 SMS 전달을 통과했다. 커뮤니티와 공식 데이터 설명을 조사했으며 실제 데이터 행 수집은 아직 완료하지 못했다.
+
 동시 워커는 `--workers`로 지정한다. 이 장비의 짧은 합성 작업에서는 2개, 도구 대기 250ms 조건에서는 4개가 효율적인 후보였다. 실제 작업 특성에 따라 다시 측정해야 한다. 자원 예산과 추천 계산은 [자원 설정 설계](docs/design/resource-sizing.md)에 설명했다.
 
 ```sh
