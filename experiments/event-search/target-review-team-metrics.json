@@ -231,5 +231,19 @@
       "wallSeconds": 949.6298649311066,
       "monotonicSeconds": 50.63036244595423
     }
+  },
+  "preflightFailureRun08": {
+    "completed": false,
+    "error": "pool stopped\ncodex account preflight: codex RPC error -32603 (workspace_routing_timeout)\ncodex account preflight: codex RPC error -32603 (workspace_routing_timeout)",
+    "seconds": 15.780512551,
+    "stats": {
+      "steps": 0,
+      "completed": 0,
+      "suspended": 0,
+      "resumed": 0,
+      "maxActive": 0,
+      "heartbeats": 0
+    },
+    "processesStarted": 0
   }
 }

@@ -4,7 +4,7 @@
 
 ## Codex 어댑터 분리와 복구
 
-독립 [codex-adapter](https://github.com/shakystar/codex-adapter) 저장소에 Go 구현·언어 독립 JSON CLI·계정 사전 검사를 분리했다. role-runtime은 게시 커밋을 직접 참조한다. 자동 테스트 및 GitHub CI 통과와 별개로, 실제 계정 라우팅 timeout이 재현되어 모델 및 6역할 팀 복구 검증은 진행 중이다. [실험·진단 기록](../experiments/event-search/target-review-team.md)을 따른다.
+독립 [codex-adapter](https://github.com/shakystar/codex-adapter) 저장소에 Go 구현·언어 독립 JSON CLI·계정 사전 검사를 분리했다. role-runtime은 게시 커밋을 직접 참조한다. 자동 테스트 및 GitHub CI 통과와 별개로, 단일 실제 모델 호출은 성공했다. 6역할 팀 실행에서 드러난 벽시계/단조 경과 차이로 인한 lease 만료를 수정하고 회귀검사·전체 검사를 통과했다. 간헐적 계정 라우팅 timeout이 재현되어 전체 팀 복구 검증은 진행 중이다. [실험·진단 기록](../experiments/event-search/target-review-team.md)을 따른다.
 
 ## 현재 보드
 
