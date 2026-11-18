@@ -131,5 +131,105 @@
     "independentAdapterDoctor": "failed-before-model-turn",
     "adapterCommit": "2e2a0da8b056397e2a85eade967f2ea436ed188c",
     "pipelineRecovered": false
+  },
+  "interruptedRun05": {
+    "completed": false,
+    "error": "context canceled",
+    "seconds": 447.44662303,
+    "workers": 2,
+    "processesStarted": 2,
+    "stats": {
+      "steps": 11,
+      "completed": 4,
+      "suspended": 6,
+      "resumed": 5,
+      "maxActive": 2,
+      "heartbeats": 56
+    },
+    "waitingObserved": [
+      "decision",
+      "critic",
+      "data",
+      "domestic",
+      "international"
+    ],
+    "webCompleted": {
+      "critic": 0,
+      "data": 6,
+      "decision": 0,
+      "designer": 0,
+      "domestic": 3,
+      "international": 3
+    },
+    "researchOverlap": true,
+    "sourcePreservationVerified": false,
+    "terminationReason": "user-cleared-goal; orderly SIGINT; not backend failure"
+  },
+  "leaseFailureRun06": {
+    "completed": false,
+    "error": "unexpected data status uncertain: heartbeat: expired or superseded execution lease\nheartbeat: expired or superseded execution lease",
+    "seconds": 421.270781947,
+    "workers": 2,
+    "processesStarted": 2,
+    "stats": {
+      "steps": 10,
+      "completed": 3,
+      "suspended": 6,
+      "resumed": 4,
+      "maxActive": 2,
+      "heartbeats": 53
+    },
+    "waitingObserved": [
+      "decision",
+      "critic",
+      "data",
+      "domestic",
+      "international"
+    ],
+    "webCompleted": {
+      "critic": 0,
+      "data": 0,
+      "decision": 0,
+      "designer": 0,
+      "domestic": 3,
+      "international": 3
+    },
+    "researchOverlap": true,
+    "sourcePreservationVerified": false,
+    "classification": "runtime lease fence; no observed backend retry"
+  },
+  "clockJumpRun07": {
+    "completed": false,
+    "error": "unexpected domestic status uncertain: heartbeat: renew: expired or superseded execution lease (status=running generation=2 expected=2 now=2026-11-18T14:35:30.665175+09:00 deadline=2026-11-18T14:21:01.587462+09:00 lastHeartbeat=2026-11-18T14:20:16.587462+09:00)\nheartbeat: renew: expired or superseded execution lease (status=running generation=2 expected=2 now=2026-11-18T14:35:30.626915+09:00 deadline=2026-11-18T14:21:01.511002+09:00 lastHeartbeat=2026-11-18T14:20:16.511002+09:00)",
+    "seconds": 71.364861863,
+    "workers": 2,
+    "processesStarted": 2,
+    "stats": {
+      "steps": 8,
+      "completed": 1,
+      "suspended": 5,
+      "resumed": 2,
+      "maxActive": 2,
+      "heartbeats": 9
+    },
+    "waitingObserved": [
+      "decision",
+      "critic",
+      "data",
+      "domestic",
+      "international"
+    ],
+    "webCompleted": {
+      "critic": 0,
+      "data": 0,
+      "decision": 0,
+      "designer": 0,
+      "domestic": 0,
+      "international": 0
+    },
+    "observerElapsed": {
+      "wallSeconds": 949.6298649311066,
+      "monotonicSeconds": 50.63036244595423
+    }
   }
 }

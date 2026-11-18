@@ -129,3 +129,23 @@ C는 기존 auth.json을 권한 0700 임시 디렉터리의 0600 파일로 복�
 ### 독립 어댑터로 연결 (2026-11-18)
 
 `codex-adapter` 2e2a0da를 공개 저장소에 게시하고 role-runtime은 해당 커밋을 Go 모듈로 직접 의존한다. 로컬 replace는 제거했다. 독립 모듈의 race 테스트·vet, role-runtime의 전체 check가 로컬 연결 상태에서 통과했다. 원격 모듈로 전환한 뒤 전체 `scripts/check.sh`도 통과했다. 독립 어댑터 커밋의 GitHub Actions run 44219363672도 success를 확인했다. 독립 CLI의 실제 `--doctor` 실행은 `-32603 (workspace_routing_timeout)`으로 실패했다. 이 호출은 모델 turn을 시작하지 않았고, 파이프라인 복구 성공으로 기록하지 않는다.
+
+### 실제 호출 성공과 사용자 취소 실행 05
+
+독립 JSON CLI가 Codex 0.169.1로 단일 advisory turn을 완료했고 기대한 `RECOVERY_OK`와 정확히 일치했다. 모델 turn 및 unsubscribe까지 약 3.76초였다. 이어 게시 어댑터를 사용하는 실행 05는 447.45초 동안 4역할 완료, steps=11, suspended=6, resumed=5, maxActive=2, heartbeat=56, 프로세스 2개를 기록했다. 사용자가 goal을 해제하여 SIGINT로 정상 취소했으며 report 오류는 `context canceled`다. 완료된 설계·국내·국제·데이터 문서 4개를 보존했다. 이는 백엔드 실패나 전체 파이프라인 성공이 아니다.
+
+사용자가 실수로 goal을 해제했다고 밝히고 재개를 요청했다. 실행 05의 불확정 작업·intent를 삭제하거나 자동 재실행하지 않고 새 state 실행 06으로 전체 경로를 검증한다. 이는 중단 체크포인트에서 전체 프로세스를 복원하는 기능을 구현했다는 뜻이 아니다.
+
+### 실행 06: 소유권 판정 오류
+
+실행 06은 약 421.27초에 데이터 역할의 `heartbeat: expired or superseded execution lease`로 중단됐다. completed=3, suspended=6, resumed=4, steps=10, maxActive=2, heartbeat=53, 프로세스 2개다. 모델 백엔드 재시도는 관찰되지 않았다. 데이터 역할의 마지막 영속 heartbeat는 11:17:19였으며 어댑터의 단조 경과 시간상 약 15초 후 취소됐다. lease TTL은 45초다. 기존 오류 메시지가 만료 시각과 세대 정보를 보존하지 않아 실제 시간 만료·소유권 변경 원인을 확정하지 못했다.
+
+만료 기준과 재실행 정책은 변경하지 않고 Renew/Finish 거절 시점의 세대·상태·now·deadline·lastHeartbeat를 포함하는 LeaseError 진단을 추가했다. errors.Is(ErrStaleLease)와 만료된 실행 거절을 유지하고, 오류 진단 및 거절 후 상태 불변성을 회귀검사한다. 다음 실행에서 동일 조건의 복구를 재검증한다.
+
+### 실행 07: 벽시계 이동 확인과 수정
+
+추가 진단으로 원인을 확인했다. 거절 당시 레코드는 running이고 generation=expected=2였지만, lastHeartbeat=14:20:16, deadline=14:21:01, now=14:35:30이었다. 별도 관찰 프로세스에서도 같은 구간에 wall-clock 949.63초, monotonic 50.63초를 측정해 약 899초의 차이를 확인했다. 시스템 시각이 왜 이동했는지는 조사 범위 밖이며, 앞선 계정 라우팅 timeout의 원인도 이 증거만으로 설명하지 않는다.
+
+기존 구현은 JSON으로 저장하면서 단조 시계 성분이 사라진 deadline과 현재 벽시계를 비교했다. 수정은 활성 소유자 Store 안에 최대 64개의 단조 시계 deadline을 유지하며 실제 TTL·세대·상태를 검사한다. 파일의 시각은 감사 메타데이터로 유지한다. 완료·대기·격리 시 활성 항목을 해제하고 재시작한 Store에는 활성 소유권을 복원하지 않는다. 따라서 이전 실행을 자동 부활시키지 않고 기존 RecoverCooperative 격리를 유지한다. TTL 45초 자체를 늘리거나 만료 거절을 제거하지 않았다.
+
+회귀검사: 벽시계 +3시간/-3시간 이동에도 정상 소유자 갱신, 실제 경과 시간 만료 거절, 만료된 결과 거절, 세대 불일치 거절, 재오픈한 Store의 이전 lease 갱신 거절 및 불확정 격리. engine race 검사와 vet 통과.

@@ -139,10 +139,13 @@ func TestLeaseExpiryAndSenderBinding(t *testing.T) {
 	task := coopTask("request", "dto")
 	mustSubmit(t, s, task)
 	now := time.Now()
+	tick := now
+	s.leaseClock = func() time.Time { return tick }
 	r, err := s.LeaseCooperative(task.ID, now, time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tick = now.Add(time.Second)
 	if err = s.RenewCooperative(task.ID, r.Generation, now.Add(time.Second), time.Second); !errors.Is(err, ErrStaleLease) {
 		t.Fatal(err)
 	}
@@ -385,5 +388,96 @@ func TestHeartbeatLostDuringExecution(t *testing.T) {
 	r, err := s.CooperativeReceipt(task.ID)
 	if err != nil || r.Status != "uncertain" || r.LastHeartbeat.IsZero() {
 		t.Fatalf("%+v %v", r, err)
+	}
+}
+
+func TestLeaseErrorReportsPersistedFence(t *testing.T) {
+	s := fixtureStore(t)
+	task := coopTask("lease-diagnosis", "dto")
+	mustSubmit(t, s, task)
+	now := time.Now()
+	tick := now
+	s.leaseClock = func() time.Time { return tick }
+	r, err := s.LeaseCooperative(task.ID, now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renewed := now.Add(15 * time.Second)
+	tick = renewed
+	if err = s.RenewCooperative(task.ID, r.Generation, renewed, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	expired := renewed.Add(time.Minute)
+	tick = expired
+	err = s.RenewCooperative(task.ID, r.Generation, expired, time.Minute)
+	var detail *LeaseError
+	if !errors.Is(err, ErrStaleLease) || !errors.As(err, &detail) {
+		t.Fatalf("missing typed fence: %v", err)
+	}
+	if detail.Operation != "renew" || detail.Status != "running" || detail.ActualGeneration != r.Generation || !detail.Deadline.Equal(expired) || !detail.LastHeartbeat.Equal(renewed) {
+		t.Fatalf("bad fence metadata: %+v", detail)
+	}
+	stored, e := s.CooperativeReceipt(task.ID)
+	if e != nil || !stored.Deadline.Equal(expired) {
+		t.Fatal("rejected renewal changed state", e)
+	}
+	err = s.FinishCooperative(task.ID, r.Generation+1, Transition{}, renewed)
+	if !errors.As(err, &detail) || detail.Operation != "finish" || detail.ExpectedGeneration != r.Generation+1 {
+		t.Fatalf("missing generation mismatch: %v", err)
+	}
+}
+
+func TestLeaseSurvivesWallClockJumpButNotElapsedExpiry(t *testing.T) {
+	for _, jump := range []time.Duration{3 * time.Hour, -3 * time.Hour} {
+		t.Run(jump.String(), func(t *testing.T) {
+			s := fixtureStore(t)
+			task := coopTask("clock-jump", "dto")
+			mustSubmit(t, s, task)
+			base := time.Now()
+			tick := base
+			s.leaseClock = func() time.Time { return tick }
+			r, err := s.LeaseCooperative(task.ID, base, 45*time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tick = base.Add(15 * time.Second)
+			wall := base.Add(jump)
+			if err = s.RenewCooperative(task.ID, r.Generation, wall, 45*time.Second); err != nil {
+				t.Fatalf("wall jump expired live owner: %v", err)
+			}
+			tick = base.Add(61 * time.Second)
+			if err = s.RenewCooperative(task.ID, r.Generation, wall, 45*time.Second); !errors.Is(err, ErrStaleLease) {
+				t.Fatalf("elapsed expiry ignored: %v", err)
+			}
+			if err = s.FinishCooperative(task.ID, r.Generation, Transition{}, wall); !errors.Is(err, ErrStaleLease) {
+				t.Fatal("expired result accepted")
+			}
+		})
+	}
+}
+func TestReopenedStoreCannotRenewOldLease(t *testing.T) {
+	root := t.TempDir()
+	s, err := OpenStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := coopTask("old-owner", "dto")
+	mustSubmit(t, s, task)
+	r := mustLease(t, s, task.ID)
+	s.Close()
+	s, err = OpenStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err = s.RenewCooperative(task.ID, r.Generation, time.Now(), time.Minute); !errors.Is(err, ErrStaleLease) {
+		t.Fatal("new owner revived old execution")
+	}
+	if err = s.RecoverCooperative(); err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := s.CooperativeReceipt(task.ID)
+	if err != nil || receipt.Status != "uncertain" {
+		t.Fatal("restart did not fence", err)
 	}
 }

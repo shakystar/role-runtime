@@ -4,10 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
 var ErrStaleLease = errors.New("expired or superseded execution lease")
+
+// LeaseError captures only fencing metadata, never task inputs or message bodies.
+// It preserves errors.Is(err, ErrStaleLease) while distinguishing expiry from ownership loss.
+type LeaseError struct {
+	Operation          string
+	Status             string
+	ExpectedGeneration uint64
+	ActualGeneration   uint64
+	Now                time.Time
+	Deadline           time.Time
+	LastHeartbeat      time.Time
+}
+
+func (e *LeaseError) Error() string {
+	return fmt.Sprintf("%s: %s (status=%s generation=%d expected=%d now=%s deadline=%s lastHeartbeat=%s)", e.Operation, ErrStaleLease, e.Status, e.ActualGeneration, e.ExpectedGeneration, e.Now.Format(time.RFC3339Nano), e.Deadline.Format(time.RFC3339Nano), e.LastHeartbeat.Format(time.RFC3339Nano))
+}
+func (e *LeaseError) Unwrap() error { return ErrStaleLease }
+func staleLease(operation string, r CooperativeRecord, g uint64, now time.Time) error {
+	return &LeaseError{Operation: operation, Status: r.Status, ExpectedGeneration: g, ActualGeneration: r.Generation, Now: now, Deadline: r.Deadline, LastHeartbeat: r.LastHeartbeat}
+}
 
 // Address names a persistent role instance, never a worker. Versions match exactly.
 type Address struct {

@@ -159,6 +159,15 @@ func (s *Store) ScanCooperative(visit func(CooperativeRecord) (bool, error)) err
 		}
 	}
 }
+
+// liveLease retains Go's monotonic clock component, which JSON cannot preserve.
+// Only this Store owner may renew it; reopening requires explicit recovery/fencing.
+type liveLease struct {
+	generation uint64
+	deadline   time.Time
+}
+
+// now supplies wall-clock audit metadata. Expiry uses the owner's monotonic clock.
 func (s *Store) LeaseCooperative(id string, now time.Time, ttl time.Duration) (CooperativeRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -175,14 +184,26 @@ func (s *Store) LeaseCooperative(id string, now time.Time, ttl time.Duration) (C
 	} else if !os.IsNotExist(err) {
 		return r, err
 	}
+	if ttl <= 0 {
+		return r, errors.New("lease TTL must be positive")
+	}
+	if len(s.liveLeases) >= 64 {
+		return r, errors.New("active lease limit reached")
+	}
+	liveDeadline := s.leaseClock().Add(ttl)
 	r.Generation++
 	r.Status = "running"
 	r.Deadline = now.Add(ttl)
 	r.LastHeartbeat = time.Time{}
-	return r, s.saveCooperative(r)
+	if err := s.saveCooperative(r); err != nil {
+		return r, err
+	}
+	s.liveLeases[id] = liveLease{r.Generation, liveDeadline}
+	return r, nil
 }
-func leaseValid(r CooperativeRecord, g uint64, now time.Time) bool {
-	return r.Status == "running" && r.Generation == g && now.Before(r.Deadline)
+func (s *Store) leaseValid(r CooperativeRecord, g uint64) bool {
+	lease, ok := s.liveLeases[r.Task.ID]
+	return ok && r.Status == "running" && r.Generation == g && lease.generation == g && s.leaseClock().Before(lease.deadline)
 }
 func (s *Store) RenewCooperative(id string, g uint64, now time.Time, ttl time.Duration) error {
 	s.mu.Lock()
@@ -191,12 +212,20 @@ func (s *Store) RenewCooperative(id string, g uint64, now time.Time, ttl time.Du
 	if err != nil {
 		return err
 	}
-	if !leaseValid(r, g, now) {
-		return ErrStaleLease
+	if !s.leaseValid(r, g) {
+		return staleLease("renew", r, g, now)
 	}
+	if ttl <= 0 {
+		return errors.New("lease TTL must be positive")
+	}
+	liveDeadline := s.leaseClock().Add(ttl)
 	r.LastHeartbeat = now
 	r.Deadline = now.Add(ttl)
-	return s.saveCooperative(r)
+	if err := s.saveCooperative(r); err != nil {
+		return err
+	}
+	s.liveLeases[id] = liveLease{g, liveDeadline}
+	return nil
 }
 func (s *Store) FinishCooperative(id string, g uint64, t Transition, now time.Time) error {
 	s.mu.Lock()
@@ -205,8 +234,8 @@ func (s *Store) FinishCooperative(id string, g uint64, t Transition, now time.Ti
 	if err != nil {
 		return err
 	}
-	if !leaseValid(r, g, now) {
-		return ErrStaleLease
+	if !s.leaseValid(r, g) {
+		return staleLease("finish", r, g, now)
 	}
 	if err = t.validate(r.Task); err != nil {
 		return err
@@ -223,7 +252,11 @@ func (s *Store) FinishCooperative(id string, g uint64, t Transition, now time.Ti
 	}
 	// Single atomic commit: checkpoint, wait condition and outbox. Reconciliation
 	// may run after a crash, including after partial delivery of this outbox.
-	return s.saveCooperative(r)
+	if err := s.saveCooperative(r); err != nil {
+		return err
+	}
+	delete(s.liveLeases, id)
+	return nil
 }
 func (s *Store) FenceCooperative(id string, g uint64, cause error) error {
 	s.mu.Lock()
@@ -246,7 +279,11 @@ func (s *Store) FenceCooperative(id string, g uint64, cause error) error {
 	if err = s.Quarantine(r.Task, cause); err != nil {
 		return err
 	}
-	return s.saveCooperative(r)
+	if err := s.saveCooperative(r); err != nil {
+		return err
+	}
+	delete(s.liveLeases, id)
+	return nil
 }
 
 // Recovery never replays running work: tools may have executed before a crash.

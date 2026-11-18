@@ -22,6 +22,8 @@ type Store struct {
 	lock        *os.File
 	mu          sync.Mutex
 	cooperating bool
+	liveLeases  map[string]liveLease
+	leaseClock  func() time.Time
 }
 
 func OpenStore(root string) (*Store, error) {
@@ -38,7 +40,7 @@ func OpenStore(root string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{Root: root, lock: lock}, nil
+	return &Store{Root: root, lock: lock, liveLeases: make(map[string]liveLease), leaseClock: time.Now}, nil
 }
 func (s *Store) Close() error { return s.lock.Close() }
 func (s *Store) RegisterRole(r Role) error {
