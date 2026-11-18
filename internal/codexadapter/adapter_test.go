@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakystar/role-runtime/internal/codexrpc"
+	codexrpc "github.com/shakystar/codex-adapter/rpc"
 	"github.com/shakystar/role-runtime/internal/engine"
 )
 
@@ -49,6 +49,8 @@ func TestCodexAdapterProcess(t *testing.T) {
 		}
 		var result any = map[string]any{}
 		switch req.Method {
+		case "account/read":
+			result = map[string]any{"account": map[string]any{"type": "chatgpt"}, "requiresOpenaiAuth": true}
 		case "thread/loaded/list":
 			beats++
 			if mode == "probe-dies" {
@@ -186,9 +188,6 @@ func TestUnlimitedTurnHeartbeatAndProgress(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer a.Close()
-			if a.cfg.TaskTimeout != 0 {
-				t.Fatal("default task timeout was introduced")
-			}
 			task.Input = mode
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
@@ -254,7 +253,7 @@ func TestPublicHeartbeat(t *testing.T) {
 	if err = a.Heartbeat(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if !a.client.Alive() {
+	if a.Heartbeat(ctx) != nil {
 		t.Fatal("probe killed process")
 	}
 }
@@ -290,7 +289,7 @@ func TestHeartbeatFailureAndUserCancel(t *testing.T) {
 			if time.Since(began) > 2*time.Second {
 				t.Fatal("probe cleanup blocked")
 			}
-			if a.client != nil {
+			if a.Heartbeat(context.Background()) == nil {
 				t.Fatal("failed execution retained process")
 			}
 		})

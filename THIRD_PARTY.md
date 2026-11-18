@@ -5,9 +5,11 @@
 | 구성요소 | 버전 / 검토 commit | upstream 라이선스 | 사용 범위 |
 | --- | --- | --- | --- |
 | pi coding agent / pi-ai | npm 1.5.2; 소스 검토 `1f6f319bb28992a40b99c147fffb23b65a23129d` | MIT | 실험에서 설치 및 공개 SDK/RPC 사용; pi-schema는 전이 의존성 |
+| codex-adapter | `2e2a0da8b056397e2a85eade967f2ea436ed188c` | MIT | 독립 Go API 및 JSON CLI. role-runtime의 기존 구현에서 분리; RPC·세션·heartbeat·계정 사전 검사. pi는 대체 경로로 유지 |
 | Eino | v0.9.23 / `35480319ee8f6f75f612b4dce0bd5f4747b37730` | Apache-2.0 | Go 실험 모듈 의존성 |
 | Letta 안내 저장소 | `8816d3a8516893bfdc0fa14bfb1235226012e295` | Apache-2.0 | README 및 라이선스 검토만 |
 | Letta Code | manifest 0.34.63 / `d3f8093b4291f8f9c44cee730c87dd3b9c307cf1` | Apache-2.0 | 메모리 계층 소스 검토만; 실행 의존성 없음 |
+| 설치된 Codex CLI | 0.166.0; 타겟 재심 진단에 설치된 0.169.1 추가 비교 | 해당 설치물의 라이선스 원문 재검토 미완료 | 로컬 app-server RPC와 생성 스키마 사용. 바이너리·리소스를 복사하거나 재배포하지 않음. 기존 pi 어댑터 유지 |
 
 확인한 원문:
 

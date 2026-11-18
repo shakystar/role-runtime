@@ -2,10 +2,14 @@
 
 설치된 codex-cli 0.166.0의 `app-server generate-json-schema` 출력으로 프로토콜을 확인했다. 기본 실행은 `codex app-server --stdio`이며, 별도 하네스를 재작성하지 않는다. 생성 스키마는 `scratch/codex-schema`에 두며 커밋하지 않는다.
 
+독립 구현은 [codex-adapter](https://github.com/shakystar/codex-adapter)에 있다. Go API와 언어 독립 JSON CLI를 제공한다. 이 저장소의 `internal/codexadapter`는 역할 정의를 공개 Request로 변환하고 engine 격리 기록을 연결하는 얇은 바인딩이다. 로컬 replace 없이 게시된 커밋 2e2a0da를 go.mod에 고정했다.
+
+계정 사전 검사 `account/read(refreshToken=false)`가 실패하면 모델 작업 전에 오류를 반환한다. RPC 원문 오류는 노출하지 않고 알려진 오류만 `workspace_routing_timeout` 등으로 분류한다. 계정 조회 성공은 모델 실행 성공을 보장하지 않는다.
+
 ## 경계
 
-- `internal/codexrpc`: JSONL initialize/initialized, ID별 요청·응답, 서버 알림, 프로세스 그룹 종료·회수. 기본 레코드 1MiB, pending 8개, 알림 64개, stderr 16KiB 상한. 초과·프로토콜 오류·진행 중 요청 취소는 프로세스를 종료한다. 서버가 보낸 승인 요청은 자동 허용하지 않고 오류 응답한다.
-- `internal/codexadapter`: 하나의 워커가 하나의 app-server를 재사용한다. 역할 키별 thread ID·workspace·지침 digest를 저장하고 start/resume한다. turn 시작 승인과 완료를 구분하며 동일 thread/turn의 완료만 수용한다.
+- 외부 `github.com/shakystar/codex-adapter/rpc`: JSONL initialize/initialized, ID별 요청·응답, 서버 알림, 프로세스 그룹 종료·회수. 기본 레코드 1MiB, pending 8개, 알림 64개, stderr 16KiB 상한. 초과·프로토콜 오류·진행 중 요청 취소는 프로세스를 종료한다. 서버가 보낸 승인 요청은 자동 허용하지 않고 오류 응답한다.
+- 외부 `github.com/shakystar/codex-adapter`: 하나의 워커가 하나의 app-server를 재사용한다. 역할 키별 thread ID·workspace·지침 digest를 저장하고 start/resume한다. turn 시작 승인과 완료를 구분하며 동일 thread/turn의 완료만 수용한다.
 - `engine.Store.ResolveDefinitions`: 프로젝트·역할·격리 상태만 확인한다. 기존 pi `Resolve`의 세션 처리는 유지하고, Codex가 pi JSONL 파일을 만들지 않게 분리했다.
 - `cmd/codex-pilot`: 사업 안건과 단계 의존성을 공급하는 외부 드라이버다. 실행·역할 직렬화·큐 상한·task receipt는 실제 `engine.Pool`이 담당한다.
 

@@ -8,7 +8,7 @@
 
 **현재 상태: Go RPC·제한된 워커 풀에 heartbeat, 영속 SMS, 대기·재개를 구현했다. 400역할 실행, 역할 간 요청·응답, 워커 수별 자원 사용량을 실제 pi와 합성 모델로 검증했다. 생산용 런타임은 아직 아니다.**
 
-Codex app-server용 [Go 어댑터](docs/design/codex-adapter.md)로 역할 thread를 교체·복원한다. [heartbeat·문서 SMS 검증](docs/research/codex-heartbeat-sms-results.md)에서 실제 워커 1개로 문서 대기·작성·전달·검토 재개를 통과했다. 임의 모델 턴 제한 대신 응답성·진행·백엔드 재시도를 관찰한다. 쓰기 도구와 자원 효율 검증은 후속 범위다.
+독립 [codex-adapter](https://github.com/shakystar/codex-adapter)의 Go API와 JSON CLI를 재사용한다. Codex app-server용 [Go 어댑터](docs/design/codex-adapter.md)로 역할 thread를 교체·복원한다. [heartbeat·문서 SMS 검증](docs/research/codex-heartbeat-sms-results.md)에서 실제 워커 1개로 문서 대기·작성·전달·검토 재개를 통과했다. 임의 모델 턴 제한 대신 응답성·진행·백엔드 재시도를 관찰한다. 쓰기 도구와 자원 효율 검증은 후속 범위다.
 
 [실제 실행 결과](docs/research/codex-pilot-results.md): 최종 파일럿 7/7 작업 성공, 최대 2워커, 재시작 후 역할 복원 3/3. 중간 시간 초과 실행도 함께 기록했다.
 

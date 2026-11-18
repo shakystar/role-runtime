@@ -1,0 +1,135 @@
+{
+  "date": "2026-11-18",
+  "status": "live-validation-blocked",
+  "businessDecisionAvailable": false,
+  "sourcePreservationLiveValidated": false,
+  "runs": [
+    {
+      "completed": false,
+      "seconds": 85.647382166,
+      "workers": 2,
+      "processesStarted": 2,
+      "stats": {
+        "steps": 6,
+        "completed": 0,
+        "suspended": 5,
+        "resumed": 0,
+        "maxActive": 1,
+        "heartbeats": 9
+      },
+      "waitingObserved": [
+        "decision",
+        "critic",
+        "data",
+        "domestic",
+        "international"
+      ],
+      "webCompleted": {
+        "critic": 0,
+        "data": 0,
+        "decision": 0,
+        "designer": 0,
+        "domestic": 0,
+        "international": 0
+      },
+      "researchOverlap": false,
+      "sourcePreservationVerified": false,
+      "run": "01",
+      "cliVersion": "0.166.0",
+      "outputMode": "backend-schema",
+      "failureClass": "document-field-type",
+      "lastBackendCode": null,
+      "lastTurnBackendErrors": 0,
+      "lastTurnHeartbeatCount": 1
+    },
+    {
+      "completed": false,
+      "seconds": 213.14585219,
+      "workers": 2,
+      "processesStarted": 2,
+      "stats": {
+        "steps": 1,
+        "completed": 0,
+        "suspended": 0,
+        "resumed": 0,
+        "maxActive": 1,
+        "heartbeats": 15
+      },
+      "waitingObserved": null,
+      "webCompleted": {},
+      "researchOverlap": false,
+      "sourcePreservationVerified": false,
+      "run": "02",
+      "cliVersion": "0.166.0",
+      "outputMode": "backend-schema",
+      "failureClass": "backend-stream-failure",
+      "lastBackendCode": "other",
+      "lastTurnBackendErrors": 10,
+      "lastTurnHeartbeatCount": 14
+    },
+    {
+      "completed": false,
+      "seconds": 218.60982323,
+      "workers": 2,
+      "processesStarted": 2,
+      "stats": {
+        "steps": 1,
+        "completed": 0,
+        "suspended": 0,
+        "resumed": 0,
+        "maxActive": 1,
+        "heartbeats": 15
+      },
+      "waitingObserved": null,
+      "webCompleted": {},
+      "researchOverlap": false,
+      "sourcePreservationVerified": false,
+      "run": "03",
+      "cliVersion": "0.166.0",
+      "outputMode": "prompt-json",
+      "failureClass": "backend-stream-failure",
+      "lastBackendCode": "other",
+      "lastTurnBackendErrors": 10,
+      "lastTurnHeartbeatCount": 14
+    },
+    {
+      "completed": false,
+      "seconds": 218.303442272,
+      "workers": 2,
+      "processesStarted": 2,
+      "stats": {
+        "steps": 1,
+        "completed": 0,
+        "suspended": 0,
+        "resumed": 0,
+        "maxActive": 1,
+        "heartbeats": 15
+      },
+      "waitingObserved": null,
+      "webCompleted": {},
+      "researchOverlap": false,
+      "sourcePreservationVerified": false,
+      "run": "04",
+      "cliVersion": "0.169.1",
+      "outputMode": "prompt-json",
+      "failureClass": "backend-stream-failure",
+      "lastBackendCode": "other",
+      "lastTurnBackendErrors": 10,
+      "lastTurnHeartbeatCount": 14
+    }
+  ],
+  "checks": "format/vet/Go race/Python/pi passed; changed prompt CLI and document rejection regression separately verified",
+  "limitations": [
+    "No completed six-role live run; unit tests do not establish successful actual research or source review.",
+    "No model turn killed by arbitrary elapsed deadline; terminal failures came from Codex.",
+    "CLI and output-mode comparisons are uncontrolled observations, not proof of fault cause."
+  ],
+  "diagnosis": {
+    "observedReason": "workspace_routing_timeout",
+    "rateLimitingConfirmed": false,
+    "isolatedAccountLookupComparison": "all-four-succeeded-once; later failures recurred",
+    "independentAdapterDoctor": "failed-before-model-turn",
+    "adapterCommit": "2e2a0da8b056397e2a85eade967f2ea436ed188c",
+    "pipelineRecovered": false
+  }
+}

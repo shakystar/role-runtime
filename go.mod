@@ -35,3 +35,5 @@ require (
 	golang.org/x/sys v0.29.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+require github.com/shakystar/codex-adapter v0.0.0-20261118015423-2e2a0da8b056

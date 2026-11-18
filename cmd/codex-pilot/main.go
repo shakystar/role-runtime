@@ -19,8 +19,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	codexrpc "github.com/shakystar/codex-adapter/rpc"
 	"github.com/shakystar/role-runtime/internal/codexadapter"
-	"github.com/shakystar/role-runtime/internal/codexrpc"
 	"github.com/shakystar/role-runtime/internal/engine"
 )
 
