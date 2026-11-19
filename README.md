@@ -14,6 +14,8 @@
 
 [6역할·2워커 복구 검증](experiments/event-search/target-review-team.md): 2026-11-19 실제 모델로 6역할 완료, SMS 대기·재개 5회, 원문 참조 보존을 통과했다. 로컬 lease는 단조 시계로 만료를 판정하며, macOS 장시간 검증에는 프로세스 단위 `caffeinate -i`를 사용했다. 이전 실패와 검증 한계도 함께 기록했다.
 
+[Python LangGraph 연결 파일럿](docs/design/orchestrator-bridge.md): 별도 role-orchestrator에서 JSONL로 실제 Go 풀을 호출하고, SQLite 체크포인트 재개와 실제 Codex 4작업 완료를 확인했다. 정식 편입 전 최소 검증이며 워커 1개·합성 자료로 제한했다.
+
 ## 실행 모델
 
 ```text
