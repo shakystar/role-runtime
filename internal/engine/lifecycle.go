@@ -195,6 +195,12 @@ func (s *Store) saveLifecycleExtra(r CooperativeRecord, extra string, extraPaylo
 		if kind == "attempt.finished" {
 			payload["outcome"] = r.Status
 			payload["execution"] = "unknown"
+			if r.ExecutionState != "" {
+				payload["execution"] = r.ExecutionState
+			}
+			if r.Failure != nil {
+				payload["failure"] = r.Failure
+			}
 			payload["duration_ns"] = nil
 			payload["duration_complete"] = false
 			if began, ok := s.lifecycleStarted[r.Task.ID]; ok {

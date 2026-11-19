@@ -1,8 +1,9 @@
-// runtime-workflow hosts the control API and a bounded cooperative fixture pipeline.
+// runtime-workflow hosts the control API and a bounded cooperative document pipeline.
 // The fixture backend is explicit; no model or business outcome is simulated as real.
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,11 +11,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	sdk "github.com/shakystar/codex-adapter"
+	rpc "github.com/shakystar/codex-adapter/rpc"
 	"github.com/shakystar/role-runtime/internal/control"
 	"github.com/shakystar/role-runtime/internal/engine"
+	"github.com/shakystar/role-runtime/internal/lifecycle"
+	"github.com/shakystar/role-runtime/internal/workflowmodel"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -58,16 +64,18 @@ func (f fixture) Step(ctx context.Context, x engine.Execution) (engine.Transitio
 	return engine.Transition{Text: string(body), Send: []engine.Message{m}}, nil
 }
 func run() error {
+	backend := flag.String("backend", "fixture", "fixture or codex")
+	codex := flag.String("codex", "codex", "local Codex executable")
 	root := flag.String("state", "", "owned state directory")
 	socket := flag.String("socket", "", "local Unix socket")
 	runID := flag.String("run-id", "workflow-v1", "immutable run")
 	delay := flag.Duration("fixture-delay", 200*time.Millisecond, "synthetic producer duration")
 	mode := flag.String("fixture-mode", "normal", "normal, early, wrong, missing, corrupt, failed")
-	workers := flag.Int("workers", 2, "bounded fixture workers")
+	workers := flag.Int("workers", 2, "bounded execution workers")
 	limit := flag.Int("ledger-limit", 0, "lifecycle bytes (zero defaults 64 MiB)")
 	flag.Parse()
-	if *root == "" || *delay < 0 || *delay > time.Minute {
-		return errors.New("invalid fixture configuration")
+	if *root == "" || *delay < 0 || *delay > time.Minute || (*backend != "fixture" && *backend != "codex") || (*backend == "codex" && *mode != "normal") || *workers < 1 || *workers > 64 {
+		return errors.New("invalid workflow configuration")
 	}
 	switch *mode {
 	case "normal", "early", "wrong", "missing", "corrupt", "failed":
@@ -79,10 +87,62 @@ func run() error {
 		return e
 	}
 	defer s.Close()
+	binding := map[string]string{"backend": *backend, "codex": *codex, "brief": engine.Digest(workflowmodel.Brief, workflowmodel.WriterInstruction, workflowmodel.ReviewerInstruction)}
+	b, _ := json.Marshal(binding)
+	bindingPath := filepath.Join(s.Root, "workflow-backend.json")
+	old, bindingErr := os.ReadFile(bindingPath)
+	if bindingErr == nil && !bytes.Equal(old, b) {
+		return errors.New("backend configuration changed; use a new state")
+	}
+	if bindingErr != nil && !os.IsNotExist(bindingErr) {
+		return bindingErr
+	}
+	if os.IsNotExist(bindingErr) {
+		entries, readErr := os.ReadDir(filepath.Join(s.Root, "cooperation"))
+		if readErr != nil {
+			return readErr
+		}
+		if *backend == "codex" && len(entries) > 0 {
+			return errors.New("legacy workflow requires a new state for codex")
+		}
+		if e = lifecycle.Write(bindingPath, b); e != nil {
+			return e
+		}
+	}
+	if e = os.MkdirAll(filepath.Join(s.Root, "workspace"), 0700); e != nil {
+		return e
+	}
+	statusFile, e := os.OpenFile(filepath.Join(s.Root, "model-status.jsonl"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if e != nil {
+		return e
+	}
+	defer statusFile.Close()
+	var statusMu sync.Mutex
+	reportStatus := func(status sdk.Status) {
+		statusMu.Lock()
+		defer statusMu.Unlock()
+		data, _ := json.Marshal(status)
+		info, err := statusFile.Stat()
+		if err == nil && info.Size()+int64(len(data)+1) <= 8<<20 {
+			statusFile.Write(append(data, '\n'))
+		}
+	}
+
 	if e = s.EnableLifecycle(*runID, *limit); e != nil {
 		return e
 	}
+	var telemetry *workflowmodel.Telemetry
+	if *backend == "codex" {
+		telemetry, e = workflowmodel.NewTelemetry(s.Root)
+		if e != nil {
+			return e
+		}
+		defer telemetry.Close()
+	}
 	producer := engine.Task{ID: "producer", Project: "pipeline", Role: "producer", Version: "v1", Instance: "main", Input: "synthetic"}
+	if *backend == "codex" {
+		producer.Input = workflowmodel.Brief
+	}
 	if e = s.SubmitCooperative(producer); e != nil && !errors.Is(e, engine.ErrDuplicate) {
 		return e
 	}
@@ -106,16 +166,29 @@ func run() error {
 		return e
 	}
 	defer server.Close()
-	json.NewEncoder(os.Stdout).Encode(map[string]any{"socket": server.Socket, "run_id": *runID, "backend": "fixture"})
+	json.NewEncoder(os.Stdout).Encode(map[string]any{"socket": server.Socket, "run_id": *runID, "backend": *backend})
 	done := make(chan error, 1)
 	go func() {
-		_, e := (engine.CooperativePool{Workers: *workers, Store: s, Factory: func(int) (engine.StepExecutor, error) { return fixture{s.Root, *mode, *delay}, nil }, PollInterval: 10 * time.Millisecond}).Run(ctx)
+		pool := engine.CooperativePool{Workers: *workers, Store: s, Factory: func(int) (engine.StepExecutor, error) {
+			if *backend == "fixture" {
+				return fixture{s.Root, *mode, *delay}, nil
+			}
+			return &workflowmodel.Executor{Store: s, RunID: *runID, Tracer: telemetry.Provider.Tracer("workflow-model"), OnStatus: reportStatus, Factory: func(ctx context.Context, status func(sdk.Status)) (workflowmodel.Model, error) {
+				return sdk.NewContext(ctx, sdk.Config{StateDir: s.Root, RPC: rpc.Config{Command: *codex, Dir: filepath.Join(s.Root, "workspace")}, OnStatus: status, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second})
+			}}, nil
+		}, PollInterval: 10 * time.Millisecond}
+		if *backend == "codex" {
+			pool.HeartbeatInterval = 15 * time.Second
+			pool.HeartbeatTimeout = 10 * time.Second
+			pool.LeaseTTL = 45 * time.Second
+		}
+		_, e := pool.Run(ctx)
 		done <- e
 	}()
 	select {
 	case e = <-done:
 		if e != nil && !errors.Is(e, context.Canceled) {
-			fmt.Fprintln(os.Stderr, "fixture worker stopped; control remains available")
+			fmt.Fprintln(os.Stderr, "workflow worker stopped; control remains available")
 		}
 		<-ctx.Done()
 		return nil

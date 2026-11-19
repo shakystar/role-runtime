@@ -247,6 +247,7 @@ func (s *Store) FinishCooperative(id string, g uint64, t Transition, now time.Ti
 	r.Outbox = t.Send
 	r.Wait = t.Wait
 	r.Text = t.Text
+	r.ExecutionState = t.ExecutionState
 	r.Inbox = nil
 	r.Status = "completed"
 	r.Deadline = time.Time{}
@@ -273,14 +274,23 @@ func (s *Store) FenceCooperative(id string, g uint64, cause error) error {
 	}
 	r.Generation++
 	r.Status = "uncertain"
+	r.Failure = FailureMetadata(cause)
+	if r.Failure != nil {
+		r.ExecutionState = r.Failure.Execution
+		if r.Failure.Execution == "not_started" {
+			r.Status = "failed"
+		}
+	}
 	r.Error = cause.Error()
 	if len(r.Error) > 8192 {
 		r.Error = r.Error[:8192]
 	}
 	r.Deadline = time.Time{}
 	// Quarantine first: a crash in between still prevents unsafe new activation.
-	if err = s.Quarantine(r.Task, cause); err != nil {
-		return err
+	if r.Failure == nil || r.Failure.Execution != "not_started" {
+		if err = s.Quarantine(r.Task, cause); err != nil {
+			return err
+		}
 	}
 	if err := s.saveCooperative(r); err != nil {
 		return err

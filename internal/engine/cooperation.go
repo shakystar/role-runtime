@@ -80,13 +80,17 @@ type WaitFor struct {
 // Transition is committed only after the harness finishes its current turn.
 // Outbox delivery is replayable; arbitrary tool side effects are not.
 type Transition struct {
-	Checkpoint string    `json:"checkpoint,omitempty"`
-	Send       []Message `json:"send,omitempty"`
-	Wait       *WaitFor  `json:"wait,omitempty"`
-	Text       string    `json:"text,omitempty"`
+	ExecutionState string    `json:"execution_state,omitempty"`
+	Checkpoint     string    `json:"checkpoint,omitempty"`
+	Send           []Message `json:"send,omitempty"`
+	Wait           *WaitFor  `json:"wait,omitempty"`
+	Text           string    `json:"text,omitempty"`
 }
 
 func (t Transition) validate(task Task) error {
+	if t.ExecutionState != "" && t.ExecutionState != "completed" {
+		return errors.New("invalid execution evidence")
+	}
 	if t.Wait == nil && t.Text == "" {
 		return errors.New("completion requires nonempty text")
 	}
@@ -119,10 +123,12 @@ type Execution struct {
 	Inbox      *Message `json:"inbox,omitempty"`
 }
 type CooperativeRecord struct {
-	AttemptID     string            `json:"attempt_id,omitempty"`
-	SchemaVersion int               `json:"schema_version,omitempty"`
-	Revision      uint64            `json:"revision,omitempty"`
-	Events        []lifecycle.Event `json:"event_intents,omitempty"`
+	ExecutionState string            `json:"execution_state,omitempty"`
+	Failure        *ExecutionFailure `json:"failure,omitempty"`
+	AttemptID      string            `json:"attempt_id,omitempty"`
+	SchemaVersion  int               `json:"schema_version,omitempty"`
+	Revision       uint64            `json:"revision,omitempty"`
+	Events         []lifecycle.Event `json:"event_intents,omitempty"`
 	Execution
 	Status        string    `json:"status"`
 	Deadline      time.Time `json:"deadline,omitempty"`

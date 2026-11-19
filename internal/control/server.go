@@ -359,7 +359,7 @@ func (s *Server) receipt(id string) (map[string]any, string) {
 	}
 	var ref Reference
 	valid := strict([]byte(r.Text), &ref) == nil && ref.Producer == id && s.artifactOK(ref.Artifact)
-	return map[string]any{"task": r.Task, "status": r.Status, "receipt_revision": r.Revision, "attempt_id": r.AttemptID, "artifact": ref.Artifact, "artifact_valid": valid, "generation": r.Generation}, ""
+	return map[string]any{"task": r.Task, "status": r.Status, "receipt_revision": r.Revision, "attempt_id": r.AttemptID, "artifact": ref.Artifact, "artifact_valid": valid, "generation": r.Generation, "failure": r.Failure, "execution": r.ExecutionState}, ""
 }
 func (s *Server) syncNotices(to engine.Address) error {
 	return s.Store.Messages(to, func(m engine.Message) error {
@@ -539,3 +539,6 @@ func (s *Server) dispatch(req request) (any, string) {
 	}
 	return nil, "invalid_request"
 }
+
+// DecodeJSON shares the strict bounded-caller JSON shape checks with runtime-owned artifacts.
+func DecodeJSON(data []byte, out any) error { return strict(data, out) }

@@ -114,3 +114,7 @@ python3 scripts/benchmark.py --plan matrix --memory-budget-mib 4096 --cpu-budget
 ## Workflow control / lifecycle
 
 [Local workflow control](docs/design/workflow-control.md) adds an opt-in owner-process Unix socket API, cooperative lifecycle intents and bounded durable event projection. `cmd/runtime-workflow` is an explicit synthetic two-task host for the Python SMS/inbox/metrics evaluation; it does not invoke a model. Existing JSONL and other entry points are unchanged.
+
+## Model-backed SMS workflow
+
+`runtime-workflow --backend codex` now connects a fixed writer/reviewer handoff to the existing adapter, receipt/SMS control path and lifecycle metrics. See [model workflow and verification](docs/model-workflow.md). Fixture mode remains the default; this is not a general research workflow.
