@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shakystar/role-runtime/internal/lifecycle"
 	"time"
 )
 
@@ -118,6 +119,10 @@ type Execution struct {
 	Inbox      *Message `json:"inbox,omitempty"`
 }
 type CooperativeRecord struct {
+	AttemptID     string            `json:"attempt_id,omitempty"`
+	SchemaVersion int               `json:"schema_version,omitempty"`
+	Revision      uint64            `json:"revision,omitempty"`
+	Events        []lifecycle.Event `json:"event_intents,omitempty"`
 	Execution
 	Status        string    `json:"status"`
 	Deadline      time.Time `json:"deadline,omitempty"`

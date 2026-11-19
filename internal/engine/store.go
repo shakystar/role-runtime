@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shakystar/role-runtime/internal/lifecycle"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,12 +19,19 @@ import (
 // CooperativePool additionally persists ready/waiting state and transactional
 // outboxes. Interrupted running work is never automatically replayed.
 type Store struct {
-	Root        string
-	lock        *os.File
-	mu          sync.Mutex
-	cooperating bool
-	liveLeases  map[string]liveLease
-	leaseClock  func() time.Time
+	ledger                *lifecycle.Ledger
+	lifecycleRun          string
+	lifecycleReservations map[string]int
+	lifecycleStarted      map[string]time.Time
+	lifecycleWaiting      map[string]time.Time
+	lifecycleError        error
+	lifecycleIncomplete   bool
+	Root                  string
+	lock                  *os.File
+	mu                    sync.Mutex
+	cooperating           bool
+	liveLeases            map[string]liveLease
+	leaseClock            func() time.Time
 }
 
 func OpenStore(root string) (*Store, error) {

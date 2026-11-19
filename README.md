@@ -110,3 +110,7 @@ python3 scripts/benchmark.py --plan matrix --memory-budget-mib 4096 --cpu-budget
 ```
 
 프로젝트 라이선스는 미정이다. 외부 코드를 복사하거나 배포하기 전에 대상 버전의 라이선스와 고지 의무를 검토한다.
+
+## Workflow control / lifecycle
+
+[Local workflow control](docs/design/workflow-control.md) adds an opt-in owner-process Unix socket API, cooperative lifecycle intents and bounded durable event projection. `cmd/runtime-workflow` is an explicit synthetic two-task host for the Python SMS/inbox/metrics evaluation; it does not invoke a model. Existing JSONL and other entry points are unchanged.

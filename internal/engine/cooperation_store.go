@@ -15,6 +15,9 @@ func (s *Store) coopPath(id string) string {
 	return filepath.Join(s.Root, "cooperation", Digest(id)+".json")
 }
 func (s *Store) saveCooperative(r CooperativeRecord) error {
+	if s.ledger != nil {
+		return s.saveLifecycle(r)
+	}
 	data, err := encodeCooperative(r)
 	if err != nil {
 		return err
