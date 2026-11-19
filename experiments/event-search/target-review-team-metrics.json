@@ -1,8 +1,8 @@
 {
   "date": "2026-11-18",
-  "status": "live-validation-blocked",
-  "businessDecisionAvailable": false,
-  "sourcePreservationLiveValidated": false,
+  "status": "live-recovery-validated",
+  "businessDecisionAvailable": true,
+  "sourcePreservationLiveValidated": true,
   "runs": [
     {
       "completed": false,
@@ -128,9 +128,10 @@
     "observedReason": "workspace_routing_timeout",
     "rateLimitingConfirmed": false,
     "isolatedAccountLookupComparison": "all-four-succeeded-once; later failures recurred",
-    "independentAdapterDoctor": "failed-before-model-turn",
+    "independentAdapterDoctor": "2026-11-19 success; earlier timeout preserved",
     "adapterCommit": "2e2a0da8b056397e2a85eade967f2ea436ed188c",
-    "pipelineRecovered": false
+    "pipelineRecovered": true,
+    "pastRoutingTimeoutRootCauseConfirmed": false
   },
   "interruptedRun05": {
     "completed": false,
@@ -245,5 +246,47 @@
       "heartbeats": 0
     },
     "processesStarted": 0
+  },
+  "recoveredAt": "2026-11-19",
+  "recoveryRun09": {
+    "completed": true,
+    "seconds": 1357.131175603,
+    "workers": 2,
+    "processesStarted": 2,
+    "stats": {
+      "steps": 11,
+      "completed": 6,
+      "suspended": 5,
+      "resumed": 5,
+      "maxActive": 2,
+      "heartbeats": 117
+    },
+    "waitingObserved": [
+      "decision",
+      "critic",
+      "data",
+      "domestic",
+      "international"
+    ],
+    "webCompleted": {
+      "critic": 4,
+      "data": 4,
+      "decision": 0,
+      "designer": 0,
+      "domestic": 4,
+      "international": 3
+    },
+    "researchOverlap": true,
+    "sourcePreservationVerified": true,
+    "artifactHashesVerified": 6,
+    "finalPredecessorReferencesVerified": 5,
+    "completedReceiptsVerified": 6,
+    "smsArtifactReferencesVerified": 6,
+    "backendErrors": 0,
+    "observedWorkerPIDs": 2,
+    "idleSleepPrevention": "caffeinate -i, process-scoped, released on exit",
+    "runtimeCommit": "12bd987a9d30e16538a6fbd161e0f226aa02b62a",
+    "adapterCommit": "2e2a0da8b056397e2a85eade967f2ea436ed188c",
+    "codexVersion": "0.169.1"
   }
 }

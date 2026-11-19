@@ -155,3 +155,23 @@ C는 기존 auth.json을 권한 0700 임시 디렉터리의 0600 파일로 복�
 단조 시계 수정 후 전체 `scripts/check.sh`를 통과하고 실행 08을 시작했으나 account preflight가 workspace_routing_timeout으로 실패했다. 약 15.78초, steps=0, completed=0, 모델 turn 시작 없음이다. 이는 lease 수정의 실패 증거가 아니라 모델 실행 전의 별도 연결 장애다. 동일 app-server에서 account/read를 두 번 순차 호출하는 진단도 각각 15초에 같은 오류를 반환했다. 자동 모델 재시도는 추가하지 않았다.
 
 인증 없는 공식 accounts/check HTTPS 연결은 401을 반환했고 DNS·TLS·HTTP 도달을 확인했다(총 약 2.62초). 인증 포함 직접 비교는 자동 승인 검토가 토큰의 외부 전송에 대한 명시적 승인 부족으로 거부하여 실행하지 않았다. 사용자에게 해당 단일 진단의 승인을 요청했으며 응답 전 재시도하지 않는다.
+
+### 2026-11-19: 승인된 직접 진단과 절전 통제
+
+사용자가 공식 계정 조회 주소에 대한 직접 인증 진단을 승인했다. 첫 Python 시도는 URLError였으며, 인증 없는 동일 인터프리터 검사에서 로컬 issuer certificate 오류(code 20)를 확인했다. 인증서 검증을 끄지 않고 `/etc/ssl/cert.pem`을 사용하자 공식 `https://chatgpt.com/backend-api/wham/accounts/check`가 HTTP 200을 약 0.60초에 반환했다. 리다이렉트를 금지했고 토큰·계정 식별자·응답 본문은 출력하지 않았다. 이후 독립 CLI의 `--doctor`도 chatgpt 및 routingAvailable=true로 성공했다. 이 관측은 현재 인증·계정 조회 성공을 입증하며 과거 timeout의 근본 원인을 확정하지 않는다. Python 인증서 문제를 Codex 자체 장애로 분류하지 않는다.
+
+사용자는 화면이 꺼진 뒤 실행이 멈추는 현상을 제보했다. `pmset -g custom`에서 AC Power sleep=1, displaysleep=60을 확인했다. 절전은 벽시계와 단조 경과 차이의 가능한 설명이지만 과거 해당 시점의 절전 이벤트까지 확인한 것은 아니다. 실행 09는 `/usr/bin/caffeinate -i`로 감싸 실행하며, 검증 프로세스를 위한 PreventUserIdleSystemSleep assertion을 실제 확인했다. 전역 전원 설정과 화면 절전 설정은 변경하지 않는다. 명령 종료 시 assertion도 해제된다. 수동 절전·덮개 닫기·전원 상실을 모두 방지하는 기능은 아니다.
+
+### 실행 09: 전체 복구 검증 통과 (2026-11-19)
+
+단조 시계 lease 수정과 프로세스 수명에 한정한 유휴 절전 방지 아래 6역할·2워커 실행이 1357.13초(약 22분 37초)에 정상 종료했다. runtime 12bd987, adapter 2e2a0da, Codex 0.169.1, 기본 structured output을 사용했다.
+
+- completed=6, steps=11, suspended=5, resumed=5, maxActive=2, heartbeat=117. 초기 후속 역할 5개의 실제 대기를 확인했다.
+- 생성 완료 콜백 2회와 상태 이벤트의 서로 다른 worker PID 2개가 일치한다. backend error=0.
+- 웹 도구 완료: 국내 4, 국제 3, 데이터 4, 반대 검토 4. 설계와 의사결정은 0이다.
+- 국내·국제 모델 turn 구간이 겹쳤다. 웹 요청의 동시성이나 순차 실행 대비 성능 개선을 측정한 것은 아니다.
+- completed receipt 6개, 문서 파일 6개의 SHA-256, 최종 입력의 선행 문서 참조 5개를 별도 스크립트로 대조했다. SMS 6개의 문서 참조도 최종 보고서와 일치한다.
+- 최종 의사결정 및 다음 실험 필드가 비어 있지 않고, 원본 선행 문서·출처 수 전달 검증을 통과했다. 근거 보존은 내용의 진실성·시장성 검증과 다르다.
+- 실행이 종료된 뒤 PreventUserIdleSystemSleep=0 및 해당 caffeinate assertion의 해제를 확인했다. 전역 전원 설정은 변경하지 않았다.
+
+원시 보고서·모델 출력·실행 상태는 ignored artifacts에 유지하고 비식별 지표만 저장소에 기록한다. 앞선 실패와 취소는 그대로 남긴다. 이번 결과는 한 번의 전체 복구 실행 성공이며, 과거 계정 라우팅 timeout이 모두 절전 때문이었다거나 장기 가용성이 보장된다는 결론은 아니다. 실행 중단 후 불확정 작업의 자동 재실행·분산 복구·메모리 페이징은 여전히 별도 후속 범위다.

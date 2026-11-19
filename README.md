@@ -12,6 +12,8 @@
 
 [실제 실행 결과](docs/research/codex-pilot-results.md): 최종 파일럿 7/7 작업 성공, 최대 2워커, 재시작 후 역할 복원 3/3. 중간 시간 초과 실행도 함께 기록했다.
 
+[6역할·2워커 복구 검증](experiments/event-search/target-review-team.md): 2026-11-19 실제 모델로 6역할 완료, SMS 대기·재개 5회, 원문 참조 보존을 통과했다. 로컬 lease는 단조 시계로 만료를 판정하며, macOS 장시간 검증에는 프로세스 단위 `caffeinate -i`를 사용했다. 이전 실패와 검증 한계도 함께 기록했다.
+
 ## 실행 모델
 
 ```text
