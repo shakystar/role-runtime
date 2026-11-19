@@ -40,6 +40,30 @@ type borrowed struct{ engine.Executor }
 
 func (borrowed) Close() error { return nil }
 
+// lazyExecutor avoids starting/authenticating Codex when only cached receipts are read.
+// The sequential bridge never calls it concurrently.
+type lazyExecutor struct {
+	factory func() (engine.Executor, error)
+	inner   engine.Executor
+}
+
+func (l *lazyExecutor) Execute(ctx context.Context, task engine.Task) (engine.Result, error) {
+	if l.inner == nil {
+		var err error
+		l.inner, err = l.factory()
+		if err != nil {
+			return engine.Result{}, err
+		}
+	}
+	return l.inner.Execute(ctx, task)
+}
+func (l *lazyExecutor) Close() error {
+	if l.inner != nil {
+		return l.inner.Close()
+	}
+	return nil
+}
+
 type fixture struct{}
 
 func (fixture) Close() error { return nil }
@@ -113,10 +137,9 @@ func run() error {
 	}
 	var executor engine.Executor = fixture{}
 	if *backend == "codex" {
-		executor, err = codexadapter.New(codexadapter.Config{Store: store, RPC: codexrpc.Config{Command: *binary, Dir: workspace}, StartupTimeout: 30 * time.Second, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second, OnStatus: func(s codexadapter.Status) { _ = json.NewEncoder(os.Stderr).Encode(s) }})
-		if err != nil {
-			return err
-		}
+		executor = &lazyExecutor{factory: func() (engine.Executor, error) {
+			return codexadapter.New(codexadapter.Config{Store: store, RPC: codexrpc.Config{Command: *binary, Dir: workspace}, StartupTimeout: 30 * time.Second, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second, OnStatus: func(s codexadapter.Status) { _ = json.NewEncoder(os.Stderr).Encode(s) }})
+		}}
 	}
 	defer executor.Close()
 	scanner := bufio.NewScanner(os.Stdin)

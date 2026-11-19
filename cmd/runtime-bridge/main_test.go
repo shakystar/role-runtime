@@ -38,7 +38,11 @@ func TestDurableDeduplicationAndUncertainWork(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	second, err := execute(context.Background(), store, e, req)
+	lazy := &lazyExecutor{factory: func() (engine.Executor, error) {
+		t.Fatal("cached receipt started backend")
+		return nil, errors.New("unexpected backend")
+	}}
+	second, err := execute(context.Background(), store, lazy, req)
 	if err != nil || !second.Cached || e.calls != 1 {
 		t.Fatalf("cached=%v calls=%d err=%v", second.Cached, e.calls, err)
 	}
