@@ -66,6 +66,7 @@ func (p Pool) Run(parent context.Context, input <-chan Task, sink func(Outcome) 
 				result.Worker = slot
 				o := Outcome{Task: task, Result: result, Status: "succeeded"}
 				if err != nil {
+					o.Result.Failure = FailureMetadata(err)
 					o.Status = "failed"
 					o.Error = err.Error()
 					if len(o.Error) > 8192 {

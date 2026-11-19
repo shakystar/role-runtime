@@ -12,6 +12,8 @@ import (
 )
 
 type Config struct {
+	StartupAttempts   int
+	RetryBackoff      time.Duration
 	RPC               codexrpc.Config
 	Store             *engine.Store
 	TaskTimeout       time.Duration
@@ -37,7 +39,7 @@ func New(c Config) (*Adapter, error) {
 	if c.Store == nil {
 		return nil, errors.New("codex adapter requires store")
 	}
-	a, err := sdk.New(sdk.Config{RPC: c.RPC, StateDir: c.Store.Root, TaskTimeout: c.TaskTimeout, StartupTimeout: c.StartupTimeout, Model: c.Model, OutputSchema: c.OutputSchema, OnProcessStart: c.OnProcessStart, HeartbeatInterval: c.HeartbeatInterval, HeartbeatTimeout: c.HeartbeatTimeout, OnStatus: c.OnStatus})
+	a, err := sdk.New(sdk.Config{RPC: c.RPC, StateDir: c.Store.Root, TaskTimeout: c.TaskTimeout, StartupTimeout: c.StartupTimeout, StartupAttempts: c.StartupAttempts, RetryBackoff: c.RetryBackoff, Model: c.Model, OutputSchema: c.OutputSchema, OnProcessStart: c.OnProcessStart, HeartbeatInterval: c.HeartbeatInterval, HeartbeatTimeout: c.HeartbeatTimeout, OnStatus: c.OnStatus})
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +51,15 @@ func (a *Adapter) Execute(ctx context.Context, t engine.Task) (engine.Result, er
 		return engine.Result{}, err
 	}
 	r, err := a.Adapter.Execute(ctx, sdk.Request{ID: t.ID, Role: t.Role, SessionKey: t.Key(), Workspace: activation.Project.Workspace, Instructions: activation.Project.Rules + "\n\n" + activation.Role.Instruction, Tools: activation.Role.Tools, Input: t.Input})
-	if err != nil {
+	if err != nil && requiresQuarantine(err) {
 		err = errors.Join(err, a.store.Quarantine(t, err))
 	}
-	return engine.Result{Text: r.Text, Session: r.Session, PID: r.PID}, err
+	return engine.Result{Text: r.Text, Session: r.Session, PID: r.PID, Failure: engine.FailureMetadata(err)}, err
+}
+
+// Pre-dispatch failures do not poison a role session. Unknown/unclassified errors
+// remain conservative. This does not resubmit failed tasks or clear receipts.
+func requiresQuarantine(err error) bool {
+	f := sdk.FailureOf(err)
+	return f == nil || f.Execution != sdk.NotStarted
 }

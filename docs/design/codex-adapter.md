@@ -45,3 +45,30 @@
 실행 순서: 고객·재무·운영 독립 검토 3건 → 모든 워커 및 Store 종료·재개 → 동일 역할 반론 검토 3건 → 의장 결정 1건. 검토 역할마다 서로 다른 난수 확인값을 첫 turn에만 주고 두 번째 입력에서는 제외한다. 재시작 후 같은 thread와 확인값이 복원되는지 드라이버가 검사한다. 다른 역할에 전달하는 의견에서는 확인값을 제거한다. 최대 워커는 2개, 마지막 심의는 1개다.
 
 이는 외부에서 정한 단계별 작업열이다. 에이전트가 스스로 작업 DAG를 만들거나, 역할 40개를 모두 실행하거나, 역할별 서로 다른 모델을 사용한 실험은 아니다.
+
+## Failure responsibility contract — 2026-11-19
+
+The reusable adapter now owns sanitized failure classification and bounded account
+preflight recovery. Its default is up to three startup attempts under one startup
+budget; only classified transient routing/rate-limit failures qualify. Turn submission
+never automatically retries. Local inspection preserves uncertain/acknowledged/completed
+turn evidence without claiming current remote state or clearing interrupted intents.
+
+The runtime wrapper consumes `FailureOf` and does not quarantine a role session for
+`not_started` errors. Unknown, started, completed-with-error and unclassified failures
+remain conservative. Pool receipts retain generic `result.failure` fields: version,
+stage, code, execution and retryable. The engine uses a small error interface and has
+no dependency on Codex's implementation. Cancellation status and existing failed-task
+receipt rules remain intact: retry eligibility does not delete a receipt or automatically
+requeue work. Startup factory failures are returned to the caller; the lazy bridge
+captures them as task failure metadata. Cooperative execution also receives metadata
+through the wrapper's result.
+
+This is minimum integration, not an automated task recovery API. The bridge v1 error
+envelope is unchanged; rich failure evidence is in the local task receipt. A future
+versioned orchestrator recovery interface can consume it without changing responsibility.
+
+Validation: adapter synthetic stdio failures cover bounded preflight recovery, auth
+failure, lost acknowledgment and cleanup loss. Runtime tests verify quarantine policy,
+wrapped error extraction and durable failure metadata for all four states, with no
+reexecution on repeated failed task submission. No upstream routing repair is claimed.

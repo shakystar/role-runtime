@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/shakystar/codex-adapter"
 	codexrpc "github.com/shakystar/codex-adapter/rpc"
 	"github.com/shakystar/role-runtime/internal/engine"
 )
@@ -236,7 +237,7 @@ func TestControlPlaneDeadlineSeparateFromUnlimitedTurn(t *testing.T) {
 	}
 	defer a.Close()
 	_, err = a.Execute(context.Background(), task)
-	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "control config/read") {
+	if !errors.Is(err, context.DeadlineExceeded) || sdk.FailureOf(err) == nil || sdk.FailureOf(err).Stage != "config_read" || sdk.FailureOf(err).Execution != sdk.NotStarted {
 		t.Fatalf("control deadline: %v", err)
 	}
 }
@@ -493,7 +494,7 @@ func TestRestartWithActiveIntentFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	task.ID = "t2"
-	if _, err = a.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "interrupted") {
+	if _, err = a.Execute(context.Background(), task); err == nil || sdk.FailureOf(err) == nil || sdk.FailureOf(err).Stage != "recovery" || sdk.FailureOf(err).Retryable {
 		t.Fatalf("expected failclosed: %v", err)
 	}
 }
@@ -587,7 +588,7 @@ func TestRoleToolRejection(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer a.Close()
-			if _, err = a.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "unsupported tool") {
+			if _, err = a.Execute(context.Background(), task); err == nil || sdk.FailureOf(err) == nil || !strings.Contains(sdk.FailureOf(err).Unwrap().Error(), "unsupported tool") {
 				t.Fatalf("tool not rejected: %v", err)
 			}
 		})
@@ -608,7 +609,7 @@ func TestWebTelemetryBounded(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer a.Close()
-			if _, err = a.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "web search") {
+			if _, err = a.Execute(context.Background(), task); err == nil || sdk.FailureOf(err) == nil || !strings.Contains(sdk.FailureOf(err).Unwrap().Error(), "web search") {
 				t.Fatalf("missing bounded telemetry rejection: %v", err)
 			}
 		})

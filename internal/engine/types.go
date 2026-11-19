@@ -67,10 +67,11 @@ type Resolver interface {
 	Resolve(context.Context, Task) (Activation, error)
 }
 type Result struct {
-	Text    string `json:"text,omitempty"`
-	Session string `json:"session,omitempty"`
-	Worker  int    `json:"worker"`
-	PID     int    `json:"pid,omitempty"`
+	Failure *ExecutionFailure `json:"failure,omitempty"`
+	Text    string            `json:"text,omitempty"`
+	Session string            `json:"session,omitempty"`
+	Worker  int               `json:"worker"`
+	PID     int               `json:"pid,omitempty"`
 }
 type Outcome struct {
 	Task   Task   `json:"task"`

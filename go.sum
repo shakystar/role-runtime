@@ -98,6 +98,8 @@ github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7
 github.com/rollbar/rollbar-go v1.0.2/go.mod h1:AcFs5f0I+c71bpHlXNNDbOWJiKwjFDtISeXco0L5PKQ=
 github.com/shakystar/codex-adapter v0.0.0-20261118015423-2e2a0da8b056 h1:CSKT3K3/nL41Nbrlxd4hHKv9tRzIDaI2Y/YJ99SAuuM=
 github.com/shakystar/codex-adapter v0.0.0-20261118015423-2e2a0da8b056/go.mod h1:ALXYdXd6wJq9Qr7ntSnHviiKPiyGMmYsC4L3F8L4y2Y=
+github.com/shakystar/codex-adapter v0.0.0-20261119053648-3ab5b920bf6c h1:r5OrEcXx4S2/Gz1XX9S0xLc7kN/0OvDBgCARE4jTPWA=
+github.com/shakystar/codex-adapter v0.0.0-20261119053648-3ab5b920bf6c/go.mod h1:ALXYdXd6wJq9Qr7ntSnHviiKPiyGMmYsC4L3F8L4y2Y=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
