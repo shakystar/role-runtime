@@ -91,3 +91,7 @@ Codex advisory 파일럿: Go app-server 어댑터·역할 thread 영속 매핑�
 산출물: CLI 또는 최소 API, 상태 조회, 합성 프로젝트 기반 end-to-end 데모, 운영 문서.
 
 종료 기준: 실행 중단 후에도 프로젝트 작업을 이어가고 결과물의 자동 검증을 통과한다. 작업 자동 분해·웹 UI·분산화는 결과를 보고 다음 백로그로 결정한다.
+
+## Windows 빌드 호환성
+
+2026-11-20: [workflow의 OS별 잠금 분리](research/windows-build-compatibility.md)로 Windows 컴파일 오류를 수정했습니다. Linux/macOS 전용 실행 계약은 유지합니다.

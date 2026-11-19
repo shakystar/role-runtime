@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"regexp"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -170,12 +169,8 @@ func (s *Server) Start(ctx context.Context) error {
 	if e := os.MkdirAll(dir, 0700); e != nil {
 		return e
 	}
-	f, e := os.OpenFile(filepath.Join(dir, "owner.lock"), os.O_CREATE|os.O_RDWR, 0600)
+	f, e := acquireOwnerLock(filepath.Join(dir, "owner.lock"))
 	if e != nil {
-		return e
-	}
-	if e = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); e != nil {
-		f.Close()
 		return e
 	}
 	s.lock = f
