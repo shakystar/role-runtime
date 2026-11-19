@@ -3,13 +3,11 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,18 +19,26 @@ import (
 )
 
 type request struct {
-	ID          string `json:"id"`
-	Role        string `json:"role"`
-	Instruction string `json:"instruction"`
-	Input       string `json:"input"`
+	SchemaVersion int    `json:"schema_version"`
+	RunID         string `json:"run_id"`
+	AttemptID     string `json:"attempt_id"`
+	Traceparent   string `json:"traceparent"`
+	ID            string `json:"id"`
+	Role          string `json:"role"`
+	Instruction   string `json:"instruction"`
+	Input         string `json:"input"`
 }
 type response struct {
-	ID     string       `json:"id"`
-	Status string       `json:"status"`
-	Text   string       `json:"text,omitempty"`
-	Cached bool         `json:"cached"`
-	Stats  engine.Stats `json:"stats"`
-	Error  string       `json:"error,omitempty"`
+	SchemaVersion int          `json:"schema_version"`
+	RunID         string       `json:"run_id"`
+	AttemptID     string       `json:"attempt_id"`
+	ErrorCode     string       `json:"error_code,omitempty"`
+	ID            string       `json:"id"`
+	Status        string       `json:"status"`
+	Text          string       `json:"text"`
+	Cached        bool         `json:"cached"`
+	Stats         engine.Stats `json:"stats"`
+	Error         string       `json:"error,omitempty"`
 }
 
 // Pool owns scheduling, but the bridge owns the executor across sequential submissions.
@@ -49,11 +55,11 @@ type lazyExecutor struct {
 
 func (l *lazyExecutor) Execute(ctx context.Context, task engine.Task) (engine.Result, error) {
 	if l.inner == nil {
-		var err error
-		l.inner, err = l.factory()
+		inner, err := l.factory()
 		if err != nil {
 			return engine.Result{}, err
 		}
+		l.inner = inner
 	}
 	return l.inner.Execute(ctx, task)
 }
@@ -117,6 +123,7 @@ func run() error {
 	state := flag.String("state", "", "persistent runtime directory")
 	backend := flag.String("backend", "fixture", "fixture or codex")
 	binary := flag.String("codex", "codex", "Codex executable")
+	legacy := flag.Bool("allow-legacy", false, "explicitly accept unversioned requests in an isolated state")
 	flag.Parse()
 	if *state == "" || (*backend != "fixture" && *backend != "codex") {
 		return errors.New("--state and valid --backend required")
@@ -142,24 +149,29 @@ func run() error {
 		}}
 	}
 	defer executor.Close()
+	telemetry := newTelemetry(store.Root)
+	defer telemetry.close()
+	tracer := telemetry.provider.Tracer("role-runtime.bridge.v1")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 4096), 128<<10)
 	enc := json.NewEncoder(os.Stdout)
 	for scanner.Scan() {
-		var req request
-		dec := json.NewDecoder(bytes.NewReader(scanner.Bytes()))
-		dec.DisallowUnknownFields()
-		if err = dec.Decode(&req); err != nil {
-			return err
-		}
-		var extra any
-		if err = dec.Decode(&extra); err != io.EOF {
-			return errors.New("one JSON object per line required")
-		}
-		out, e := execute(ctx, store, executor, req)
-		if e != nil {
-			out.Status = "error"
-			out.Error = e.Error()
+		req, decodeErr := decodeRequest(scanner.Bytes(), *legacy)
+		var out response
+		if decodeErr != nil {
+			out = invalidResponse(req)
+		} else if req.SchemaVersion == 0 {
+			if bindErr := bindProtocol(store, req); bindErr != nil {
+				out = invalidResponse(req)
+			} else {
+				out, err = execute(ctx, store, executor, req)
+				if err != nil {
+					out.Status = "error"
+					out.Error = "legacy execution blocked"
+				}
+			}
+		} else {
+			out = handle(ctx, store, executor, tracer, req)
 		}
 		if err = enc.Encode(out); err != nil {
 			return err

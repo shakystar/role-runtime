@@ -21,3 +21,14 @@
 실험 코드는 공개 API를 호출하도록 작성했으며 upstream 구현 파일을 복사해 포함하지 않았다. 다운로드한 저장소, 도구체인, node_modules와 모듈 캐시는 커밋하지 않는다. 설치물은 package-lock.json과 go.sum으로 고정한다.
 
 배포물을 만들 때는 포함되는 직접·전이 구성요소의 저작권/라이선스 원문과 NOTICE 유무를 버전별로 확인하고 필요한 고지를 함께 보존한다. 현재 단계에서는 배포용 번들·바이너리를 생성하거나 재배포하지 않았다.
+
+## Bridge v1 observability (2026-11-19)
+
+OpenTelemetry Go API/SDK and OTLP/HTTP trace exporter **1.47.0**, Apache-2.0
+([upstream license](https://github.com/open-telemetry/opentelemetry-go/blob/v1.47.0/LICENSE)).
+Used for W3C trace propagation, bounded batching and optional loopback export; no fork.
+Direct and transitive versions are pinned in go.mod/go.sum. Alternative: metadata-only
+local logs without remote export. A hand-written OTLP implementation was not used.
+Version 1.38.0 rejected Python's W3C trace flags `03`; the shared contract vectors
+verify this interoperability on the selected version. This is compatibility evidence,
+not an observability performance benchmark.

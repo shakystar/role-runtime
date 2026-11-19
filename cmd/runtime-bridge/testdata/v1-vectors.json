@@ -1,0 +1,132 @@
+[
+  {
+    "name": "valid",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": true
+  },
+  {
+    "name": "schema_version-True",
+    "wire": "{\"schema_version\": true, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "schema_version-2",
+    "wire": "{\"schema_version\": 2, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "id-.bad",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \".bad\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "run_id-None",
+    "wire": "{\"schema_version\": 1, \"run_id\": null, \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "input-",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "instruction-",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "role-rrrrrrrrrrrr",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "traceparent-00-000000000",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-00000000000000000000000000000000-2222222222222222-01\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-schema_version",
+    "wire": "{\"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-run_id",
+    "wire": "{\"schema_version\": 1, \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-attempt_id",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-id",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-role",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-instruction",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-input",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  },
+  {
+    "name": "missing-traceparent",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\"}",
+    "valid": false
+  },
+  {
+    "name": "duplicate",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\",\"id\":\"duplicate\"}",
+    "valid": false
+  },
+  {
+    "name": "unknown",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\", \"extra\": 1}",
+    "valid": false
+  },
+  {
+    "name": "case-sensitive-id",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\", \"ID\": \"task-1\"}",
+    "valid": false
+  },
+  {
+    "name": "case-sensitive-role",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\", \"ROLE\": \"reviewer\"}",
+    "valid": false
+  },
+  {
+    "name": "case-sensitive-input",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\", \"INPUT\": \"{}\"}",
+    "valid": false
+  },
+  {
+    "name": "case-sensitive-instruction",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\", \"INSTRUCTION\": \"Review\"}",
+    "valid": false
+  },
+  {
+    "name": "case-sensitive-run_id",
+    "wire": "{\"schema_version\": 1, \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\", \"RUN_ID\": \"run-1\"}",
+    "valid": false
+  },
+  {
+    "name": "case-sensitive-attempt_id",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"traceparent\": \"00-11111111111111111111111111111111-2222222222222222-03\", \"ATTEMPT_ID\": \"attempt-1\"}",
+    "valid": false
+  },
+  {
+    "name": "case-sensitive-traceparent",
+    "wire": "{\"schema_version\": 1, \"run_id\": \"run-1\", \"attempt_id\": \"attempt-1\", \"id\": \"task-1\", \"role\": \"reviewer\", \"instruction\": \"Review\", \"input\": \"{}\", \"TRACEPARENT\": \"00-11111111111111111111111111111111-2222222222222222-03\"}",
+    "valid": false
+  }
+]
