@@ -76,9 +76,16 @@ func (fixture) Close() error { return nil }
 func (fixture) Execute(_ context.Context, t engine.Task) (engine.Result, error) {
 	var input struct {
 		Fixture json.RawMessage `json:"fixture"`
+		Text    *string         `json:"fixture_text"`
 	}
 	if err := json.Unmarshal([]byte(t.Input), &input); err != nil {
 		return engine.Result{}, err
+	}
+	if input.Text != nil {
+		if len(input.Fixture) != 0 {
+			return engine.Result{}, errors.New("ambiguous fixture output")
+		}
+		return engine.Result{Text: *input.Text}, nil
 	}
 	if len(input.Fixture) == 0 {
 		return engine.Result{}, errors.New("fixture field required in fixture backend")
@@ -124,7 +131,16 @@ func run() error {
 	backend := flag.String("backend", "fixture", "fixture or codex")
 	binary := flag.String("codex", "codex", "Codex executable")
 	legacy := flag.Bool("allow-legacy", false, "explicitly accept unversioned requests in an isolated state")
+	inspect := flag.String("inspect-attempt", "", "read one existing attempt without submitting work")
+	runID := flag.String("run-id", "", "expected owner of the inspected attempt")
+	capabilities := flag.Bool("capabilities", false, "print supported bridge interfaces")
 	flag.Parse()
+	if *capabilities {
+		return json.NewEncoder(os.Stdout).Encode(map[string]int{"bridge": 1, "inspect_attempt": 1, "fixture_text": 1})
+	}
+	if *inspect != "" || *runID != "" {
+		return inspectAttempt(*state, *runID, *inspect, os.Stdout)
+	}
 	if *state == "" || (*backend != "fixture" && *backend != "codex") {
 		return errors.New("--state and valid --backend required")
 	}

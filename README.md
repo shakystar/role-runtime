@@ -118,3 +118,7 @@ python3 scripts/benchmark.py --plan matrix --memory-budget-mib 4096 --cpu-budget
 ## Model-backed SMS workflow
 
 `runtime-workflow --backend codex` now connects a fixed writer/reviewer handoff to the existing adapter, receipt/SMS control path and lifecycle metrics. See [model workflow and verification](docs/model-workflow.md). Fixture mode remains the default; this is not a general research workflow.
+
+### Bridge attempt inspection
+
+`runtime-bridge --capabilities` reports the bridge, attempt-inspection and literal-fixture interface versions. Query an existing v1 attempt with `runtime-bridge --state DIR --run-id RUN --inspect-attempt ATTEMPT`. This read-only command returns a v1 JSON envelope containing `absent` or `observed`. An observed response contains the original bound wire request and native receipt bytes in base64. Inspection can run while the executor holds the store lock. An absent receipt leaves submission uncertain. The fixture backend accepts `fixture_text` for a literal writer output and `fixture` for a raw JSON response.
