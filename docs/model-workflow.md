@@ -79,3 +79,21 @@ token usage, cost and graph wait duration remain unavailable rather than reporte
 See the paired orchestrator's `docs/model-workflow-validation.md` and sanitized report.
 All model content was synthetic; this verifies integration, not business quality,
 long-running operations, dynamic teams, memory paging or universal entrypoint adoption.
+
+## Contract-bound writer/reviewer
+
+Pass `--contract file.json --backend codex` on a fresh run to supply a v1
+contract. The JSON object contains version (1), id, objective, required_items
+(1–8 distinct strings), and evidence (1–16 unique id/text observations); the
+file limit is 8 KiB. The canonical contract and proposal instruction are bound
+to the state directory. A changed binding cannot resume an earlier run.
+The producer receipt input and the hashed writer artifact retain the contract.
+The reviewer receives the verified artifact and contract.
+
+In this mode review.json records one action (complete, revise, investigate,
+defer), reason, evidence_ids, decision_test, source_sha256 and the runtime-bound
+contract_id. All actions require known nonduplicate evidence IDs. Non-complete
+actions require a concrete next check in the model instruction and nonempty text
+at validation. The runtime checks shape and reference identity; the factual
+support and usefulness of a reason require a separate evaluation. This review
+finishes the consumer without emitting another SMS or dispatching a task.

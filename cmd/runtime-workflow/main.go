@@ -73,6 +73,7 @@ func run() error {
 	mode := flag.String("fixture-mode", "normal", "normal, early, wrong, missing, corrupt, failed")
 	workers := flag.Int("workers", 2, "bounded execution workers")
 	limit := flag.Int("ledger-limit", 0, "lifecycle bytes (zero defaults 64 MiB)")
+	contractPath := flag.String("contract", "", "optional v1 work contract for the model-backed handoff")
 	flag.Parse()
 	if *root == "" || *delay < 0 || *delay > time.Minute || (*backend != "fixture" && *backend != "codex") || (*backend == "codex" && *mode != "normal") || *workers < 1 || *workers > 64 {
 		return errors.New("invalid workflow configuration")
@@ -88,6 +89,19 @@ func run() error {
 	}
 	defer s.Close()
 	binding := map[string]string{"backend": *backend, "codex": *codex, "brief": engine.Digest(workflowmodel.Brief, workflowmodel.WriterInstruction, workflowmodel.ReviewerInstruction)}
+	var contract *workflowmodel.WorkContract
+	var contractJSON []byte
+	if *contractPath != "" {
+		if *backend != "codex" {
+			return errors.New("work contract requires codex backend")
+		}
+		contract, e = workflowmodel.LoadContract(*contractPath)
+		if e != nil {
+			return e
+		}
+		contractJSON, _ = json.Marshal(contract)
+		binding["contract"] = engine.Digest(string(contractJSON), workflowmodel.ProposalInstruction)
+	}
 	b, _ := json.Marshal(binding)
 	bindingPath := filepath.Join(s.Root, "workflow-backend.json")
 	old, bindingErr := os.ReadFile(bindingPath)
@@ -142,6 +156,9 @@ func run() error {
 	producer := engine.Task{ID: "producer", Project: "pipeline", Role: "producer", Version: "v1", Instance: "main", Input: "synthetic"}
 	if *backend == "codex" {
 		producer.Input = workflowmodel.Brief
+		if contract != nil {
+			producer.Input = string(contractJSON)
+		}
 	}
 	if e = s.SubmitCooperative(producer); e != nil && !errors.Is(e, engine.ErrDuplicate) {
 		return e
@@ -173,7 +190,7 @@ func run() error {
 			if *backend == "fixture" {
 				return fixture{s.Root, *mode, *delay}, nil
 			}
-			return &workflowmodel.Executor{Store: s, RunID: *runID, Tracer: telemetry.Provider.Tracer("workflow-model"), OnStatus: reportStatus, Factory: func(ctx context.Context, status func(sdk.Status)) (workflowmodel.Model, error) {
+			return &workflowmodel.Executor{Contract: contract, Store: s, RunID: *runID, Tracer: telemetry.Provider.Tracer("workflow-model"), OnStatus: reportStatus, Factory: func(ctx context.Context, status func(sdk.Status)) (workflowmodel.Model, error) {
 				return sdk.NewContext(ctx, sdk.Config{StateDir: s.Root, RPC: rpc.Config{Command: *codex, Dir: filepath.Join(s.Root, "workspace")}, OnStatus: status, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second})
 			}}, nil
 		}, PollInterval: 10 * time.Millisecond}

@@ -32,6 +32,7 @@ type Model interface {
 }
 type Factory func(context.Context, func(sdk.Status)) (Model, error)
 type Executor struct {
+	Contract *WorkContract
 	Tracer   trace.Tracer
 	RunID    string
 	Store    *engine.Store
@@ -102,6 +103,10 @@ func (e *Executor) Step(ctx context.Context, x engine.Execution) (transition eng
 	case "producer":
 		req.Instructions = WriterInstruction
 		req.Input = Brief
+		if e.Contract != nil {
+			b, _ := json.Marshal(e.Contract)
+			req.Input = string(b)
+		}
 	case "consumer":
 		record, readErr := e.Store.CooperativeReceipt("producer")
 		if readErr != nil || record.Status != "completed" {
@@ -134,8 +139,15 @@ func (e *Executor) Step(ctx context.Context, x engine.Execution) (transition eng
 		if expectedHash != ref.Artifact.SHA256 {
 			return transition, errors.New("dependency hash mismatch")
 		}
-		input, _ := json.Marshal(map[string]any{"requirements": Brief, "document": json.RawMessage(data), "source_sha256": expectedHash})
+		var requirements any = Brief
+		if e.Contract != nil {
+			requirements = e.Contract
+		}
+		input, _ := json.Marshal(map[string]any{"requirements": requirements, "document": json.RawMessage(data), "source_sha256": expectedHash})
 		req.Instructions = ReviewerInstruction
+		if e.Contract != nil {
+			req.Instructions = ProposalInstruction
+		}
 		req.Input = string(input)
 		file = "review.json"
 	default:
@@ -185,6 +197,18 @@ func (e *Executor) Step(ctx context.Context, x engine.Execution) (transition eng
 			return transition, errors.New("invalid writer output")
 		}
 		data, _ = json.Marshal(doc)
+		if e.Contract != nil {
+			data, _ = json.Marshal(struct {
+				Title    string        `json:"title"`
+				Body     string        `json:"body"`
+				Contract *WorkContract `json:"task_contract"`
+			}{doc.Title, doc.Body, e.Contract})
+		}
+	} else if e.Contract != nil {
+		data, err = e.Contract.recordProposal(result.Text, expectedHash)
+		if err != nil {
+			return transition, err
+		}
 	} else {
 		var review struct {
 			Verdict string `json:"verdict"`
