@@ -46,29 +46,14 @@
 
 이는 외부에서 정한 단계별 작업열이다. 에이전트가 스스로 작업 DAG를 만들거나, 역할 40개를 모두 실행하거나, 역할별 서로 다른 모델을 사용한 실험은 아니다.
 
-## Failure responsibility contract — 2026-11-19
+<a id="failure-responsibility-contract--2026-11-19"></a>
 
-The reusable adapter now owns sanitized failure classification and bounded account
-preflight recovery. Its default is up to three startup attempts under one startup
-budget; only classified transient routing/rate-limit failures qualify. Turn submission
-never automatically retries. Local inspection preserves uncertain/acknowledged/completed
-turn evidence without claiming current remote state or clearing interrupted intents.
+## 실패 처리 책임 계약 (2026-11-19)
 
-The runtime wrapper consumes `FailureOf` and does not quarantine a role session for
-`not_started` errors. Unknown, started, completed-with-error and unclassified failures
-remain conservative. Pool receipts retain generic `result.failure` fields: version,
-stage, code, execution and retryable. The engine uses a small error interface and has
-no dependency on Codex's implementation. Cancellation status and existing failed-task
-receipt rules remain intact: retry eligibility does not delete a receipt or automatically
-requeue work. Startup factory failures are returned to the caller; the lazy bridge
-captures them as task failure metadata. Cooperative execution also receives metadata
-through the wrapper's result.
+재사용 어댑터가 민감 정보를 제거한 실패 분류와 제한적 계정 사전 확인 복구를 담당한다. 기본값은 하나의 기동 예산에서 최대 세 번 시도하는 것이다. 일시적인 라우팅 장애나 요청 횟수 제한으로 분류된 경우만 재시도한다. 턴 제출은 자동 재시도하지 않는다. 로컬 조회는 불확실한 턴, 접수 확인된 턴, 완료된 턴의 근거를 보존한다. 원격의 현재 상태를 확정하거나 중단된 시도의 기록을 지우지 않는다.
 
-This is minimum integration, not an automated task recovery API. The bridge v1 error
-envelope is unchanged; rich failure evidence is in the local task receipt. A future
-versioned orchestrator recovery interface can consume it without changing responsibility.
+런타임 래퍼는 `FailureOf`를 사용한다. `not_started` 오류는 역할 세션을 격리하지 않는다. 실행 여부 미상, 시작 후 오류, 완료 후 오류, 미분류 실패는 보수적으로 처리한다. 풀 영수증의 공통 `result.failure`에는 version, stage, code, execution, retryable이 있다. 엔진은 작은 오류 인터페이스만 사용하므로 Codex 구현에 의존하지 않는다. 취소 상태와 실패 영수증의 기존 규칙을 유지한다. 재시도 가능한 오류라도 영수증을 삭제하거나 자동으로 다시 큐에 넣지 않는다. 기동 중 생성 함수의 오류는 호출자에게 반환하고, 지연 초기화 브리지는 이를 작업 실패 메타데이터로 기록한다. 협력 실행도 래퍼 결과를 통해 같은 메타데이터를 받는다.
 
-Validation: adapter synthetic stdio failures cover bounded preflight recovery, auth
-failure, lost acknowledgment and cleanup loss. Runtime tests verify quarantine policy,
-wrapped error extraction and durable failure metadata for all four states, with no
-reexecution on repeated failed task submission. No upstream routing repair is claimed.
+이 단계에서는 실패 근거 전달까지 연결했다. bridge v1 오류 응답 형식은 그대로이며 상세 근거는 로컬 작업 영수증에 있다. 향후 버전이 지정된 오케스트레이터 복구 인터페이스는 책임 분담을 유지하면서 이 기록을 사용할 수 있다. 자동 작업 복구 API는 아직 없다.
+
+어댑터의 합성 stdio 장애 검사로 제한적 사전 확인 복구, 인증 실패, 접수 확인 유실, 정리 단계 유실을 검증했다. 런타임 검사는 네 상태의 격리 정책, 래핑된 오류 추출, 실패 메타데이터 영속 저장을 확인했다. 실패한 작업을 다시 제출해도 재실행하지 않았다. 상위 서비스의 라우팅 장애 복구 여부는 이 검증으로 확인할 수 없다.
