@@ -27,8 +27,10 @@
 
 ## 확인된 문서 공백
 
-- 브리지 실행 시도 조회 명령은 [루트 README](../README.md)에 있지만, [브리지 설계 문서](design/orchestrator-bridge.md)에는 `absent`와 `observed`의 전체 응답 필드 및 출력 예제가 없다. 현재 구현은 [조회 코드](../cmd/runtime-bridge/inspection.go)에 있다.
-- [자원 측정 결과](research/resource-results.md)는 합성 모델의 RSS·CPU·처리량을 기록한다. 같은 조건의 실모델 토큰 절감과 장기 메모리 상한을 확인한 검증 보고서는 없다.
+| 필요한 문서 | 필요한 이유 | 작성 완료 조건 |
+| --- | --- | --- |
+| 브리지 실행 시도 조회 계약 | [명령 설명](../README.md#bridge-attempt-inspection)에는 조회 용도가 있지만 [브리지 설계](design/orchestrator-bridge.md)에는 전체 응답 필드와 예제가 없다. 호출자가 영수증 부재만으로 작업을 다시 제출할 위험이 있다. | [조회 코드](../cmd/runtime-bridge/inspection.go)를 기준으로 `absent`와 `observed`의 필드, 응답 예시, 각 상태에서 판단 가능한 범위를 기록하고 합성 실행 결과와 대조한다. |
+| 실모델 자원 검증 기록 | [기존 측정](research/resource-results.md)은 합성 모델 조건이므로 실제 토큰 사용량과 장시간 실행 중 메모리 변화를 판단할 근거가 없다. | 실모델로 비교를 수행했을 때 커밋·환경·역할 수·워커 수·관측 시간과 비교군을 명시하고, 토큰 사용량·메모리 추이·미측정 항목을 원본 측정값과 함께 기록한다. |
 
 ## 문서 관리
 

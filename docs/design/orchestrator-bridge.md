@@ -1,3 +1,5 @@
+<a id="experimental-langgraph-bridge"></a>
+
 # 실험용 LangGraph 브리지
 
 2026-11-19에 `cmd/runtime-bridge`가 독립 Python [role-orchestrator](https://github.com/shakystar/role-orchestrator)에 순차 JSONL 인터페이스를 제공하도록 구현했다. 정식 채택이나 공개 API 안정성을 보장하기 전의 파일럿이다.
@@ -16,6 +18,8 @@
 Go fmt/vet와 `go test -race ./...`를 통과했다. 브리지 검사에서는 저장소를 다시 연 후 성공 영수증 재사용, 입력·역할 충돌, 불확실하거나 손상된 영수증 거부를 확인했다. Python 검사에서는 실제 브리지 재시작·재개, 캐시 사용, 수정 없는 수락, 미해결 검토 횟수 제한, 예산 소진을 확인했다. 실제 Codex는 Python을 두 번 실행하는 동안 워커 한 개에서 3개 역할의 작업 4건을 완료했고 수정은 한 번이었다. 성공 영수증을 다시 조회할 때 모델은 실행되지 않았다. 자료는 합성 데이터였다. 여행 수요와 범용 에이전트 자율성, SMS로 작업 재개, 병렬 워커, 동적 그래프, 운영 환경 복구는 이 파일럿의 검증 범위 밖이다.
 
 실제 영수증 재조회 중 어댑터가 캐시된 작업에도 Codex를 즉시 기동해 제한된 환경에서 `codex RPC stdout closed`로 실패했다. 이후 백엔드를 실제 실행 시점에 초기화하도록 변경했다. 회귀 검사에서 캐시된 영수증은 실행기 생성 함수를 호출하지 않음을 확인했고, 존재하지 않는 Codex 실행 파일을 지정해도 실제 완료 출력을 다시 읽었다. 처음 실패한 검사는 성공에 포함하지 않았다.
+
+<a id="versioned-contract-and-cross-process-tracing"></a>
 
 ## 버전 계약과 프로세스 간 추적
 

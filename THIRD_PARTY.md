@@ -22,6 +22,8 @@
 
 배포물을 만들 때는 포함되는 직접·전이 구성요소의 저작권/라이선스 원문과 NOTICE 유무를 버전별로 확인하고 필요한 고지를 함께 보존한다. 현재 단계에서는 배포용 번들·바이너리를 생성하거나 재배포하지 않았다.
 
+<a id="bridge-v1-observability-2026-11-19"></a>
+
 ## Bridge v1 관측 도구 (2026-11-19)
 
 OpenTelemetry Go API/SDK와 OTLP/HTTP 추적 내보내기 도구 **1.47.0**은 Apache-2.0 라이선스를 따른다([원본 라이선스](https://github.com/open-telemetry/opentelemetry-go/blob/v1.47.0/LICENSE)).

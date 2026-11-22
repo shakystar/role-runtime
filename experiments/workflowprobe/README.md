@@ -1,3 +1,5 @@
+<a id="synthetic-smslanggraph-feasibility-fixture"></a>
+
 # SMS·LangGraph 연동을 검증하는 합성 테스트
 
 `./scripts/go.sh build -o bin/workflow-probe ./experiments/workflowprobe`로 빌드한다. role-orchestrator/tests/test_workflow_probe.py의 Python 회귀 검사가 임시 상태 디렉터리에 이 프로그램을 실행한다. 모델을 호출하지 않고 실제 협력 저장소, 사서함, 임대와 영수증을 검사한다. 장애 주입을 위해 조기·오발송 SMS와 생산자 실행 차단을 포함한다. 서비스 API나 범용 실행기로 제공하지 않는다.

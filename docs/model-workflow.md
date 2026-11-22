@@ -1,6 +1,10 @@
+<a id="model-backed-document-handoff"></a>
+
 # 모델을 사용한 문서 인계
 
 2026-11-19에 `runtime-workflow --backend codex`로 기존 협력 제어·SMS·수명주기 기록 경로에서 작성자와 검토자의 실제 모델 턴을 실행했다. 기본 백엔드는 `fixture`다. 이 실험은 고정된 합성 과제를 사용했으며 범용 조사나 제품 워크플로는 다루지 않았다.
+
+<a id="before--after"></a>
 
 ## 구현 변경
 
@@ -17,6 +21,8 @@
 
 산출물을 먼저 영속 저장한 뒤 영수증을 확정한다. 그사이 중단되면 영수증에 연결되지 않은 파일이 남고 실행 상태가 불확실해질 수 있다. 자동 재실행이나 정확히 한 번 실행은 보장하지 않는다. 시작 전 실패가 확인된 경우에도 실패한 작업 ID는 종료 상태로 유지한다. 실행 여부 미상, 시작 후 실패, 완료 후 실패는 역할을 보수적으로 격리한다. 상태 디렉터리마다 백엔드·실행 파일·지침 다이제스트를 고정하므로 변경하려면 새 실행이 필요하다.
 
+<a id="run"></a>
+
 ## 실행
 
 ```sh
@@ -27,11 +33,15 @@
 
 role-orchestrator의 워크플로 폴링 CLI와 `examples/model-document-workflow.json`을 함께 사용한다. `scripts/check_model_workflow.py`는 지표를 집계하고 완료 영수증, 모델 완료 수, 산출물·추적 기록의 일치 여부를 검사한다. 워커가 실패해도 프로세스에서 영수증을 조회할 수 있다. SIGTERM은 정상 종료를 요청한다. 모델 턴에는 시간 제한이 없다. heartbeat 주기는 15초, 응답 기한은 10초, 임대 기간은 45초다. 어댑터 초기화에는 기존 제한적 재시도 정책을 적용한다.
 
+<a id="observation-boundary"></a>
+
 ## 관측 범위
 
 `workflow-spans.jsonl`은 메타데이터만 최대 8 MiB까지 기록한다. `workflow-trace-id.json`에 실행 식별자를 저장한다. 단계마다 모델 하위 스팬을 만든다. OTLP 내보내기는 `ROLE_TRACE_ENDPOINT`(localhost 또는 127.0.0.1을 명시한 HTTP URL)와 `ROLE_TRACE_AUTH`로 설정한다. 로컬 Langfuse 경로는 `/api/public/otel/v1/traces`다. 자격 증명은 환경 변수로 전달하고 커밋하는 파일에 담지 않는다. 내보내기 실패는 별도 집계하며 작업 완료 판정에 영향을 주지 않는다. 로컬 로그 초기화·설정 실패는 호스트 기동을 막을 수 있다. 모델 상태 로그 한도는 8 MiB이며 무제한 보관이나 무손실 추적은 보장하지 않는다.
 
 추적 대상은 Go 워크플로 실행기다. Python 소켓 요청 스팬은 이 추적에 연결하지 않았고 기존 JSONL 브리지 추적도 별도로 유지한다. 실제 토큰 사용량·비용·그래프 대기 시간은 미측정으로 남긴다.
+
+<a id="validation"></a>
 
 ## 검증 결과
 
@@ -42,6 +52,8 @@ role-orchestrator의 워크플로 폴링 CLI와 `examples/model-document-workflo
 - 최초 doctor 요청은 workspace_routing_timeout으로 실패했다. 이후 접수된 작업은 어댑터의 제한적 기동 재시도로 복구했다. 라우팅을 우회하지 않았으며 영구 복구를 확인한 결과도 아니다.
 
 role-orchestrator의 `docs/model-workflow-validation.md`와 민감 정보를 제거한 보고서에 대응 기록이 있다. 모델에는 합성 자료만 제공했다. 실제 업무 품질, 장기 운영, 동적 팀, 메모리 페이징, 모든 진입점 적용은 검증 범위 밖이다.
+
+<a id="contract-bound-writerreviewer"></a>
 
 ## 계약을 따르는 작성자와 검토자
 

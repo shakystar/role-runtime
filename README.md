@@ -113,13 +113,19 @@ python3 scripts/benchmark.py --plan matrix --memory-budget-mib 4096 --cpu-budget
 
 프로젝트 라이선스는 미정이다. 외부 코드를 복사하거나 배포하기 전에 대상 버전의 라이선스와 고지 의무를 검토한다.
 
+<a id="workflow-control--lifecycle"></a>
+
 ## 워크플로 제어와 수명주기 기록
 
 [로컬 워크플로 제어](docs/design/workflow-control.md)는 선택적으로 활성화할 수 있는 소유 프로세스의 Unix 소켓 API, 협력 작업의 상태 전이 기록 의도, 크기가 제한된 영속 이벤트 원장을 제공한다. `cmd/runtime-workflow`의 합성 모드는 작업 두 개로 Python 측 SMS·수신함·지표를 평가하며 모델을 호출하지 않는다. 기존 JSONL 등 다른 진입점은 그대로 사용할 수 있다.
 
+<a id="model-backed-sms-workflow"></a>
+
 ## 모델을 사용하는 SMS 워크플로
 
 `runtime-workflow --backend codex`는 고정된 작성자·검토자 간 문서 인계를 기존 어댑터, 영수증·SMS 제어 경로, 수명주기 지표에 연결한다. [모델 워크플로와 검증 결과](docs/model-workflow.md)에 실험 범위를 기록했다. 기본값은 합성 모드이며 범용 조사 워크플로는 다루지 않는다.
+
+<a id="bridge-attempt-inspection"></a>
 
 ### 브리지 실행 시도 조회
 
