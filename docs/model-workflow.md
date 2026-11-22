@@ -1,37 +1,23 @@
-# Model-backed document handoff
+# 모델을 사용한 문서 인계
 
-2026-11-19. `runtime-workflow --backend codex` now runs the existing cooperative
-control/SMS/lifecycle path with real writer and reviewer turns. The default remains
-`fixture`. This is a fixed synthetic brief, not a general research or product workflow.
+2026-11-19에 `runtime-workflow --backend codex`로 기존 협력 제어·SMS·수명주기 기록 경로에서 작성자와 검토자의 실제 모델 턴을 실행했다. 기본 백엔드는 `fixture`다. 이 실험은 고정된 합성 과제를 사용했으며 범용 조사나 제품 워크플로는 다루지 않았다.
 
-## Before → after
+## 구현 변경
 
-| Situation | Previous workflow host | This slice |
+| 항목 | 기존 합성 호스트 | 모델 연결 후 |
 | --- | --- | --- |
-| Document creation | Fixture writes predetermined JSON | Existing codex-adapter produces writer JSON; runtime validates and saves it |
-| Review | Fixture consumer returns fixed text | Reviewer receives completed producer evidence and exact document bytes/hash |
-| Failure evidence | Cooperative errors conservatively uncertain | Structured stage/code/execution retained; known not-started failure stops without role quarantine |
-| Observation | Lifecycle/metrics with a startup-retry hook | Adapter startup retries connected to admitted attempt; bounded metadata-only model spans |
+| 문서 작성 | 미리 정한 JSON을 기록 | 기존 codex-adapter가 작성자 JSON을 생성하고 런타임이 검증·저장 |
+| 검토 | 소비자가 고정된 텍스트를 반환 | 검토자가 생산자 작업의 완료 근거와 문서 원본 바이트·해시를 수신 |
+| 실패 근거 | 협력 작업 오류의 실행 여부를 보수적으로 미확인 처리 | 단계·코드·실행 상태를 구조화해 보존하고 시작 전 실패가 확인되면 역할을 격리하지 않고 종료 |
+| 관측 | 수명주기·지표와 기동 재시도 훅 제공 | 기동 재시도를 접수한 시도에 연결하고 크기가 제한된 모델 스팬에 메타데이터만 기록 |
 
-`internal/workflowmodel` provides an injectable model executor. Each bounded worker
-lazily initializes one adapter and can reuse its process across separate role session
-keys. Python does not invoke Codex. The runtime determines artifact paths, immutable
-references and SMS addresses; model output cannot choose these. Adapter defaults use
-read-only workspace policy, but role/session separation is not OS privilege isolation.
+`internal/workflowmodel`은 교체 가능한 모델 실행기를 제공한다. 제한된 풀의 워커마다 필요할 때 어댑터 한 개를 초기화하며, 역할별 세션 키가 달라도 같은 프로세스를 재사용할 수 있다. Python은 Codex를 호출하지 않는다. 런타임이 산출물 경로·불변 참조·SMS 주소를 정하므로 모델 출력으로 변경할 수 없다. 어댑터의 기본 작업공간 정책은 읽기 전용이다. 역할과 세션을 분리해도 OS 권한 격리는 보장하지 않는다.
 
-Writer JSON requires title/body. Reviewer JSON requires accept/revise, a reason and
-the supplied source SHA-256. Completion means a valid review was produced, **not**
-that the proposal was accepted. This slice does not automatically revise a document.
-Artifacts are bounded to 16 KiB and existing files are never intentionally overwritten.
-Dependency receipts, paths and content hashes are checked before reviewer model calls.
+작성자 JSON에는 제목과 본문이 있어야 한다. 검토자 JSON에는 `accept` 또는 `revise`, 사유, 전달받은 원본 SHA-256이 필요하다. 완료 조건은 유효한 검토 결과의 생성이며 수락 여부와는 독립적이다. 이 단계에서는 문서를 자동 수정하지 않는다. 산출물은 16 KiB까지 허용하고 기존 파일을 의도적으로 덮어쓰지 않는다. 검토자 모델을 호출하기 전에 선행 작업의 영수증·경로·내용 해시를 확인한다.
 
-Artifact persistence precedes receipt commit. A crash between them can leave an orphan
-artifact and uncertain work; no automatic replay or exactly-once claim is made. Failed
-task IDs remain terminal even for known not-started failures. Unknown/started/completed
-failures retain conservative role quarantine. Backend, executable and instruction digest
-are pinned in each state directory; changing them requires a new run.
+산출물을 먼저 영속 저장한 뒤 영수증을 확정한다. 그사이 중단되면 영수증에 연결되지 않은 파일이 남고 실행 상태가 불확실해질 수 있다. 자동 재실행이나 정확히 한 번 실행은 보장하지 않는다. 시작 전 실패가 확인된 경우에도 실패한 작업 ID는 종료 상태로 유지한다. 실행 여부 미상, 시작 후 실패, 완료 후 실패는 역할을 보수적으로 격리한다. 상태 디렉터리마다 백엔드·실행 파일·지침 다이제스트를 고정하므로 변경하려면 새 실행이 필요하다.
 
-## Run
+## 실행
 
 ```sh
 ./scripts/go.sh build -o bin/runtime-workflow ./cmd/runtime-workflow
@@ -39,61 +25,26 @@ are pinned in each state directory; changing them requires a new run.
   --run-id model-demo --codex /absolute/path/to/codex
 ```
 
-Use the paired role-orchestrator `examples/model-document-workflow.json` with its
-workflow poll CLI. `scripts/check_model_workflow.py` additionally projects metrics
-and verifies completed receipts, model completion count and artifact/trace consistency.
-The process stays available for receipt inspection after a worker failure. SIGTERM
-stops it gracefully. There is no model-turn deadline; heartbeat is 15s, probe timeout
-10s, lease 45s. Adapter initialization retains its existing bounded retry policy.
+role-orchestrator의 워크플로 폴링 CLI와 `examples/model-document-workflow.json`을 함께 사용한다. `scripts/check_model_workflow.py`는 지표를 집계하고 완료 영수증, 모델 완료 수, 산출물·추적 기록의 일치 여부를 검사한다. 워커가 실패해도 프로세스에서 영수증을 조회할 수 있다. SIGTERM은 정상 종료를 요청한다. 모델 턴에는 시간 제한이 없다. heartbeat 주기는 15초, 응답 기한은 10초, 임대 기간은 45초다. 어댑터 초기화에는 기존 제한적 재시도 정책을 적용한다.
 
-## Observation boundary
+## 관측 범위
 
-`workflow-spans.jsonl` contains metadata only (8 MiB limit). `workflow-trace-id.json`
-persists the run identity. Each step has a model child span. Optional OTLP export uses
-`ROLE_TRACE_ENDPOINT` (explicit localhost/127.0.0.1 HTTP URL) and `ROLE_TRACE_AUTH`.
-For local Langfuse the endpoint is `/api/public/otel/v1/traces`; pass credentials via
-the environment, never in committed files. Export failures are counted separately;
-they do not decide task completion. Local log initialization/configuration can still
-fail host startup. Model status logs are bounded to 8 MiB. No unlimited retention or
-lossless tracing guarantee is provided.
+`workflow-spans.jsonl`은 메타데이터만 최대 8 MiB까지 기록한다. `workflow-trace-id.json`에 실행 식별자를 저장한다. 단계마다 모델 하위 스팬을 만든다. OTLP 내보내기는 `ROLE_TRACE_ENDPOINT`(localhost 또는 127.0.0.1을 명시한 HTTP URL)와 `ROLE_TRACE_AUTH`로 설정한다. 로컬 Langfuse 경로는 `/api/public/otel/v1/traces`다. 자격 증명은 환경 변수로 전달하고 커밋하는 파일에 담지 않는다. 내보내기 실패는 별도 집계하며 작업 완료 판정에 영향을 주지 않는다. 로컬 로그 초기화·설정 실패는 호스트 기동을 막을 수 있다. 모델 상태 로그 한도는 8 MiB이며 무제한 보관이나 무손실 추적은 보장하지 않는다.
 
-This tracing covers the Go workflow executor; it does not newly connect Python socket
-request spans into this trace. Existing JSONL bridge tracing remains separate. Actual
-token usage, cost and graph wait duration remain unavailable rather than reported as zero.
+추적 대상은 Go 워크플로 실행기다. Python 소켓 요청 스팬은 이 추적에 연결하지 않았고 기존 JSONL 브리지 추적도 별도로 유지한다. 실제 토큰 사용량·비용·그래프 대기 시간은 미측정으로 남긴다.
 
-## Validation
+## 검증 결과
 
-- Whole-repository Go race suite and vet passed; added executor tests cover handoff,
-  dependency tampering before a model call, malformed output after model completion,
-  and all four execution-failure states. Exporter-503 test preserves local spans and
-  trace identity across reopen.
-- Paired orchestrator: existing 19 acceptance cases passed; 39 Python tests passed.
-- Actual Codex 0.169.1: writer/reviewer completed with one reused process, one startup
-  retry, two model completions, two execution attempts and one SMS acknowledgment.
-- Local Langfuse 4.82.0 readback matched all four span IDs and parents, with no input
-  or output payloads. Restart/re-poll left model statuses, spans and artifacts unchanged.
-- Initial doctor request failed with workspace_routing_timeout; subsequent admitted
-  execution recovered under the adapter's existing bounded startup retry. Routing was
-  not bypassed or declared permanently fixed.
+- 전체 Go race 검사와 vet를 통과했다. 실행기 검사에서는 문서 인계, 모델 호출 전 의존성 변조, 모델 완료 후 잘못된 출력, 네 가지 실행 실패 상태를 확인했다. 내보내기에서 HTTP 503이 발생해도 로컬 스팬과 추적 식별자가 재개 후 보존됐다.
+- 연동한 오케스트레이터에서 기존 수락 사례 19개와 Python 검사 39개를 통과했다.
+- 실제 Codex 0.169.1에서 작성자와 검토자가 프로세스 하나를 재사용해 완료했다. 기동 재시도 1회, 모델 완료 2회, 실행 시도 2회, SMS 수신 확인 1회를 기록했다.
+- 로컬 Langfuse 4.82.0에서 다시 읽은 스팬 4개의 ID와 부모가 모두 일치했다. 입출력 본문은 저장하지 않았다. 재시작·재조회 후 모델 상태·스팬·산출물은 그대로였다.
+- 최초 doctor 요청은 workspace_routing_timeout으로 실패했다. 이후 접수된 작업은 어댑터의 제한적 기동 재시도로 복구했다. 라우팅을 우회하지 않았으며 영구 복구를 확인한 결과도 아니다.
 
-See the paired orchestrator's `docs/model-workflow-validation.md` and sanitized report.
-All model content was synthetic; this verifies integration, not business quality,
-long-running operations, dynamic teams, memory paging or universal entrypoint adoption.
+role-orchestrator의 `docs/model-workflow-validation.md`와 민감 정보를 제거한 보고서에 대응 기록이 있다. 모델에는 합성 자료만 제공했다. 실제 업무 품질, 장기 운영, 동적 팀, 메모리 페이징, 모든 진입점 적용은 검증 범위 밖이다.
 
-## Contract-bound writer/reviewer
+## 계약을 따르는 작성자와 검토자
 
-Pass `--contract file.json --backend codex` on a fresh run to supply a v1
-contract. The JSON object contains version (1), id, objective, required_items
-(1–8 distinct strings), and evidence (1–16 unique id/text observations); the
-file limit is 8 KiB. The canonical contract and proposal instruction are bound
-to the state directory. A changed binding cannot resume an earlier run.
-The producer receipt input and the hashed writer artifact retain the contract.
-The reviewer receives the verified artifact and contract.
+새 실행에서 `--contract file.json --backend codex`로 v1 계약을 전달한다. JSON 객체에 version(1), id, objective, required_items(중복 없는 문자열 1~8개), evidence(고유한 id/text 관측값 1~16개)를 넣는다. 파일 한도는 8 KiB다. 정규화한 계약과 제안 지침은 상태 디렉터리에 고정된다. 연결된 값이 달라지면 이전 실행을 재개할 수 없다. 생산자 영수증의 입력과 해시가 기록된 작성자 산출물에 계약을 보존한다. 검토자는 검증한 산출물과 계약을 받는다.
 
-In this mode review.json records one action (complete, revise, investigate,
-defer), reason, evidence_ids, decision_test, source_sha256 and the runtime-bound
-contract_id. All actions require known nonduplicate evidence IDs. Non-complete
-actions require a concrete next check in the model instruction and nonempty text
-at validation. The runtime checks shape and reference identity; the factual
-support and usefulness of a reason require a separate evaluation. This review
-finishes the consumer without emitting another SMS or dispatching a task.
+이 모드의 review.json은 행동 하나(complete, revise, investigate, defer), reason, evidence_ids, decision_test, source_sha256, 런타임이 연결한 contract_id를 기록한다. 모든 행동은 중복 없이 등록된 근거 ID를 참조해야 한다. 완료 외 행동에서는 모델 지침으로 다음에 확인할 구체적인 내용을 요구하고 검증 시 텍스트가 비어 있으면 거부한다. 런타임은 형식과 참조 일치 여부를 검사한다. 사유의 사실적 근거와 유용성은 별도 평가가 필요하다. 검토가 끝나면 소비자 작업이 완료되며 추가 SMS 발송이나 작업 배정은 없다.

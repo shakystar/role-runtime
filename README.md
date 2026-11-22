@@ -1,5 +1,7 @@
 # role-runtime
 
+[문서 색인](docs/README.md)에서 설계·검증 기록과 문서 공백을 확인할 수 있습니다.
+
 수십 개의 전문 역할 컨텍스트를 소수의 실행 워커에 교체 로드하는 런타임.
 
 외부에서 **무엇을 할지**와 **어떤 역할로 실행할지**를 지정한다. 런타임은 해당 역할의 지침·도구·작업 상태를 불러와 실행하고, 재개 가능한 상태를 저장한 뒤 워커를 반환한다.
@@ -111,14 +113,14 @@ python3 scripts/benchmark.py --plan matrix --memory-budget-mib 4096 --cpu-budget
 
 프로젝트 라이선스는 미정이다. 외부 코드를 복사하거나 배포하기 전에 대상 버전의 라이선스와 고지 의무를 검토한다.
 
-## Workflow control / lifecycle
+## 워크플로 제어와 수명주기 기록
 
-[Local workflow control](docs/design/workflow-control.md) adds an opt-in owner-process Unix socket API, cooperative lifecycle intents and bounded durable event projection. `cmd/runtime-workflow` is an explicit synthetic two-task host for the Python SMS/inbox/metrics evaluation; it does not invoke a model. Existing JSONL and other entry points are unchanged.
+[로컬 워크플로 제어](docs/design/workflow-control.md)는 선택적으로 활성화할 수 있는 소유 프로세스의 Unix 소켓 API, 협력 작업의 상태 전이 기록 의도, 크기가 제한된 영속 이벤트 원장을 제공한다. `cmd/runtime-workflow`의 합성 모드는 작업 두 개로 Python 측 SMS·수신함·지표를 평가하며 모델을 호출하지 않는다. 기존 JSONL 등 다른 진입점은 그대로 사용할 수 있다.
 
-## Model-backed SMS workflow
+## 모델을 사용하는 SMS 워크플로
 
-`runtime-workflow --backend codex` now connects a fixed writer/reviewer handoff to the existing adapter, receipt/SMS control path and lifecycle metrics. See [model workflow and verification](docs/model-workflow.md). Fixture mode remains the default; this is not a general research workflow.
+`runtime-workflow --backend codex`는 고정된 작성자·검토자 간 문서 인계를 기존 어댑터, 영수증·SMS 제어 경로, 수명주기 지표에 연결한다. [모델 워크플로와 검증 결과](docs/model-workflow.md)에 실험 범위를 기록했다. 기본값은 합성 모드이며 범용 조사 워크플로는 다루지 않는다.
 
-### Bridge attempt inspection
+### 브리지 실행 시도 조회
 
-`runtime-bridge --capabilities` reports the bridge, attempt-inspection and literal-fixture interface versions. Query an existing v1 attempt with `runtime-bridge --state DIR --run-id RUN --inspect-attempt ATTEMPT`. This read-only command returns a v1 JSON envelope containing `absent` or `observed`. An observed response contains the original bound wire request and native receipt bytes in base64. Inspection can run while the executor holds the store lock. An absent receipt leaves submission uncertain. The fixture backend accepts `fixture_text` for a literal writer output and `fixture` for a raw JSON response.
+`runtime-bridge --capabilities`는 브리지, 실행 시도 조회, 텍스트를 그대로 반환하는 합성 응답 인터페이스의 버전을 출력한다. 기존 v1 시도는 `runtime-bridge --state DIR --run-id RUN --inspect-attempt ATTEMPT`로 조회한다. 이 읽기 전용 명령은 `absent` 또는 `observed` 상태를 담은 v1 JSON 응답을 반환한다. `observed`인 응답에는 해당 시도에 연결된 원래 요청과 영수증 원본 바이트가 base64로 들어 있다. 실행기가 저장소를 잠근 상태에서도 조회할 수 있다. 영수증이 없으면 제출 여부는 불확실하다. 합성 백엔드에서 `fixture_text`는 작성자의 출력을 문자 그대로 지정하고, `fixture`는 원본 JSON 응답을 지정한다.

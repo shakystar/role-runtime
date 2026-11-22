@@ -1,93 +1,43 @@
-# Local workflow control and lifecycle records
+# 로컬 워크플로 제어와 수명주기 기록
 
-2026-11-19. Implemented as opt-in cooperative-runtime components, with a two-task
-**fixture** host. No model, network research or production-autonomy claim is made.
-The existing sequential JSONL bridge remains unchanged.
+2026-11-19에 선택적으로 사용할 수 있는 협력 런타임 구성요소와 작업 두 개를 실행하는 **합성 테스트 호스트**를 구현했다. 이 검증에는 모델과 네트워크 조사가 없었으며 운영 환경의 자율 실행은 평가하지 않았다. 기존 순차 JSONL 브리지는 그대로 사용한다.
 
-## Ownership and API
+## 소유권과 API
 
-`internal/control.Server` runs alongside workers using the same `engine.Store` owner.
-Only the owner opens runtime state. A second control lock prevents duplicate listeners.
-The socket is fixed under `<state>/control/runtime.sock`, mode 0600, in the private
-owned directory. It never removes a socket in an unrelated state directory.
+`internal/control.Server`는 워커와 같은 `engine.Store` 소유 프로세스에서 동작한다. 런타임 상태는 소유 프로세스만 열며, 별도 제어 잠금으로 중복 리스너를 막는다. 소켓은 소유 프로세스의 비공개 디렉터리 아래 `<state>/control/runtime.sock`에 권한 0600으로 생성한다. 다른 상태 디렉터리의 소켓은 제거하지 않는다.
 
-Requests carry version=1, request_id, run_id, method and params. Duplicate/unknown or
-incorrectly cased object fields are rejected. Methods:
+요청에는 `version=1`, `request_id`, `run_id`, `method`, `params`가 있다. 중복·미등록 필드와 대소문자가 다른 필드는 거부한다.
 
-- health.get: lifecycle capacity, projection health and historical completeness.
-- receipts.get: scoped cooperative receipt identity, status, revision and artifact check.
-- notifications.list: immutable messages projected from the existing mailbox; opaque
-  persistent ledger-generation cursors; explicit consumer/address binding.
-- notifications.ack: durable consumer+delivery checkpoint acknowledgment, idempotent.
-- events.list: durable lifecycle event pages filtered by configured project.
-- tasks.submit: narrowly scoped, immutable cooperative submission for a registered
-  consumer address. This addition lets a resumed graph submit its downstream task
-  through the owner instead of reopening storage. An existing failed task is never
-  requeued. Completed duplicate submission records a cache delivery, not another attempt.
+- `health.get`은 수명주기 기록에 남은 용량, 원본에서 조회용 기록을 생성하는 과정의 상태, 과거 기록의 완전성을 반환한다.
+- `receipts.get`은 지정 범위의 협력 작업 영수증 식별자, 상태, 리비전과 산출물 검사 결과를 반환한다.
+- `notifications.list`는 기존 사서함 메시지에서 생성한 불변 통지를 조회한다. 소비자와 주소를 명시적으로 연결하며, 원장 세대에 연결된 영속 커서의 내부 형식은 공개하지 않는다.
+- `notifications.ack`는 소비자·전달 건별 체크포인트의 확인을 영속 저장한다. 같은 확인을 반복해도 결과는 같다.
+- `events.list`는 설정된 프로젝트의 영속 수명주기 이벤트를 페이지 단위로 반환한다.
+- `tasks.submit`은 등록된 소비자 주소에 허용된 범위에서 변경 불가능한 협력 작업을 제출한다. 재개한 그래프는 저장소를 다시 열지 않고 소유 프로세스를 통해 후속 작업을 제출한다. 실패한 기존 작업은 큐에 다시 넣지 않는다. 완료된 작업의 중복 제출은 새 시도 없이 캐시 전달로 기록한다.
 
-Limits: four concurrent connections, 5-second connection deadline, 64 KiB request,
-256 KiB response and 1..100 rows per page. An idle fifth connection receives busy.
-Notifications are projected from retained immutable mailbox records, so a crash before
-projection is repaired by scanning those records. Opaque cursors refer to projection
-order, not causality. A page may contain zero matching items while advancing its cursor.
-Consumers must continue until the cursor stops advancing, not infer EOF from a filtered
-empty page. No automatic retention/deletion is implemented.
+동시 연결 4개, 연결 기한 5초, 요청 64 KiB, 응답 256 KiB, 페이지당 1~100행으로 제한한다. 기존 연결이 유휴 상태여도 다섯 번째 연결에는 사용 중으로 응답한다. 보존한 불변 사서함 기록에서 통지를 생성하므로 생성 전 장애는 원본을 재검사해 복구한다. 커서는 조회용 기록이 생성된 순서를 나타내며 인과 순서를 보장하지 않는다. 필터링 결과가 빈 페이지여도 커서는 전진할 수 있으므로 소비자는 커서가 멈출 때까지 조회한다. 보관 기한에 따른 자동 삭제는 구현하지 않았다.
 
-Artifact references contain producer_task_id and artifact {id,version,sha256}. Receipt
-text and SMS body use the same reference. Checks use Go OpenRoot rooted at state/artifacts,
-reject traversal/symlink escape and read at most 1 MiB. Hash equality proves byte identity,
-not content quality. The Python workflow verifies the producer's role/project/version
-and terminal receipt as well as the expected correlation and reference.
+산출물 참조에는 `producer_task_id`와 `artifact {id,version,sha256}`가 있다. 영수증 본문과 SMS 본문은 같은 참조를 사용한다. 검사는 Go OpenRoot의 루트를 `state/artifacts`로 설정해 경로 순회·심볼릭 링크를 통한 범위 이탈을 거부하며 최대 1 MiB를 읽는다. 해시 일치는 바이트 동일성을 확인한다. 내용 품질은 평가하지 않는다. Python 워크플로는 생산자의 역할·프로젝트·버전과 종료 영수증, 기대한 상관 식별자와 참조를 검사한다.
 
-## Durable events and capacity
+## 영속 이벤트와 용량
 
-EnableLifecycle(runID,limit) enables cooperative-record schema_version=1, per-task
-revision and bounded event_intents. Every lifecycle transition atomically persists its
-state plus event intents; projection into numbered immutable ledger entries preserves
-stable event IDs. Pending intents are cleared only after durable projection. A projection
-failure after completion does not change task success. New transitions retry pending
-intents; events.list reconciles them. Legacy history is explicitly incomplete and that
-marker persists across restarts. Normal Store/JSONL receipts are not retroactively
-converted into an invented event history.
+`EnableLifecycle(runID,limit)`은 협력 기록의 `schema_version=1`, 작업별 리비전과 크기가 제한된 `event_intents`를 활성화한다. 수명주기가 바뀔 때마다 상태와 이벤트 기록 의도를 원자적으로 저장한다. 번호가 붙은 불변 원장 항목을 생성할 때 이벤트 ID를 유지한다. 원장에 영속 저장한 후에만 대기 중인 의도를 지운다. 완료 후 원장 반영이 실패해도 작업 성공 상태는 유지한다. 새 상태 전이 시 대기 의도를 재시도하고 `events.list`가 미반영 건을 대조·반영한다. 이전 형식의 기록에는 불완전 표시를 붙이고 재시작 후에도 유지한다. 기존 Store/JSONL 영수증으로 과거 이벤트를 소급 생성하지 않는다.
 
-64 MiB default/max ledger, 16 KiB maximum entry; each nonterminal admitted task reserves
-64 KiB for bounded terminal events. Pending completed intents retain their byte reservation
-until projection. Admission stops at capacity without deleting source records. This is
-logical ledger reservation, not a guarantee against filesystem exhaustion; I/O errors
-remain visible. Notification projection has a separate bounded 64 MiB ledger. Acks are
-bounded by the projected delivery identities and are never silently dropped.
+원장의 기본·최대 크기는 64 MiB, 항목당 한도는 16 KiB다. 접수 후 종료 전인 작업마다 종료 이벤트용으로 64 KiB를 예약한다. 완료 후에도 기록 의도가 원장에 반영될 때까지 예약을 유지한다. 한도에 도달하면 원본을 삭제하지 않고 접수를 중단한다. 이 예약은 원장의 논리 용량에만 적용되므로 파일 시스템 공간 부족 등 I/O 오류는 호출자에게 전달한다. 통지용 원장은 별도로 64 MiB까지 사용한다. 수신 확인 수는 원장에 반영된 전달 식별자 수로 제한하며 확인 기록을 임의로 누락하지 않는다.
 
-Events: task.accepted/waiting/ready, attempt.started/finished, startup.retry and
-result.cache_hit. Attempt identity derives from run/task/cooperative generation.
-An executor invocation is not proof of model dispatch. Fixture terminal execution
-certainty is unknown. RecordStartupRetry is a fenced hook for a backend with a known
-admitted attempt; startup before task admission is not falsely attributed. The fixture
-host does not contact Codex or generate preflight retries. RecordCacheHit deduplicates
-by delivery identity. Token/cost records are intentionally not implemented yet.
+이벤트는 `task.accepted`, `task.waiting`, `task.ready`, `attempt.started`, `attempt.finished`, `startup.retry`, `result.cache_hit`다. 시도 식별자는 실행·작업·협력 실행 세대로 정한다. 실행기 호출만으로 모델 호출을 확인할 수 없다. 합성 작업이 끝나도 모델 실행 여부는 미확인으로 기록한다. `RecordStartupRetry`는 이미 접수한 시도를 확인한 백엔드가 해당 세대에서만 호출할 수 있다. 접수 전에 발생한 기동은 특정 시도에 귀속하지 않는다. 합성 호스트는 Codex에 접속하지 않으며 사전 확인 재시도를 만들지 않는다. `RecordCacheHit`는 전달 식별자로 중복을 제거한다. 토큰·비용 기록은 미구현이다.
 
-Queue/suspended segment and execution durations use process-local monotonic clocks.
-Reopened intervals are unknown, never computed by subtracting persisted wall times.
-Python graph dependency wait is a separate, currently unmeasured duration.
+큐 대기·일시 중단 구간과 실행 시간은 프로세스 내부 단조 시계로 측정한다. 저장소를 다시 열어 이어지는 구간은 미확인으로 남기며 저장된 벽시계 시각을 빼서 추정하지 않는다. Python 그래프의 의존성 대기 시간은 별도 항목이며 아직 측정하지 않는다.
 
-## Run and verify
+## 실행과 검증
 
 ```sh
 ./scripts/go.sh build -o bin/runtime-workflow ./cmd/runtime-workflow
 ./bin/runtime-workflow --state /tmp/role-flow-demo --run-id demo --fixture-delay 2s
 ```
 
-This foreground fixture host serves the API while the bounded CooperativePool runs.
-The producer writes a synthetic artifact and sends SMS. A Python workflow submits the
-consumer after verifying the dependency. SIGINT/SIGTERM stops the host; uncertain
-in-flight work is fenced rather than replayed. Use a fresh state for a fresh experiment;
-do not delete failed receipts to force retry. Keep state paths short for Unix socket limits.
+포그라운드에서 실행하는 합성 호스트는 제한된 CooperativePool을 실행하며 API를 제공한다. 생산자가 합성 산출물을 쓰고 SMS를 보내면 Python 워크플로가 의존성을 확인한 후 소비자 작업을 제출한다. SIGINT/SIGTERM으로 종료하면 실행 여부가 불확실한 작업은 재실행을 막는다. 새 실험은 새 상태 디렉터리에서 실행하고 실패한 영수증을 삭제해 재시도를 강제하지 않는다. Unix 소켓 경로 길이 제한에 맞게 상태 경로를 짧게 유지한다.
 
-`--fixture-mode` includes early/wrong/missing/corrupt/failed fault cases. They are test
-controls, not business modes. The reusable control/lifecycle packages can be hosted by
-other cooperative entry points; this CLI intentionally supports fixtures only.
+`--fixture-mode`의 early/wrong/missing/corrupt/failed는 장애 주입용 설정이다. 제어·수명주기 패키지는 다른 협력 실행 진입점에서도 사용할 수 있다. 이 단계의 CLI는 합성 실행만 지원했다.
 
-Tests cover projection failure/reopen, duplicate projection, completion capacity,
-auxiliary-event deduplication, malformed control requests, address/run restrictions,
-connection limits and confined artifact access. Python's evaluation runner supplies
-cross-process graph/inbox/ack crash tests and 19 acceptance cases. See the paired
-role-orchestrator `docs/workflow-implementation.md` for results and commands.
+검사는 원장 반영 실패 후 재개, 중복 반영, 완료 기록 용량, 보조 이벤트 중복 제거, 잘못된 제어 요청, 주소·실행 제한, 연결 한도, 허용 경로 안에서의 산출물 접근을 다룬다. Python 평가 실행기는 프로세스 간 그래프·수신함·수신 확인 처리 중 장애 검사와 수락 사례 19개를 제공한다. 결과와 명령은 role-orchestrator의 `docs/workflow-implementation.md`에 있다.
