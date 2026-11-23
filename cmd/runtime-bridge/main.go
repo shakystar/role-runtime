@@ -143,6 +143,8 @@ func run() error {
 	state := flag.String("state", "", "persistent runtime directory")
 	backend := flag.String("backend", "fixture", "fixture or codex")
 	binary := flag.String("codex", "codex", "Codex executable")
+	model := flag.String("model", "", "Codex model: gpt-6.2-sol or gpt-6.2-astra")
+	reasoningEffort := flag.String("reasoning-effort", "", "Codex reasoning effort: low, medium, or high")
 	legacy := flag.Bool("allow-legacy", false, "explicitly accept unversioned requests in an isolated state")
 	inspect := flag.String("inspect-attempt", "", "read one existing attempt without submitting work")
 	runID := flag.String("run-id", "", "expected owner of the inspected attempt")
@@ -150,6 +152,25 @@ func run() error {
 	flag.Parse()
 	if *capabilities {
 		return json.NewEncoder(os.Stdout).Encode(map[string]int{"bridge": 1, "inspect_attempt": 1, "fixture_text": 1})
+	}
+	var configErr error
+	flag.Visit(func(f *flag.Flag) {
+		if configErr != nil {
+			return
+		}
+		switch f.Name {
+		case "model":
+			if *model != "gpt-6.2-sol" && *model != "gpt-6.2-astra" {
+				configErr = errors.New("--model must be gpt-6.2-sol or gpt-6.2-astra")
+			}
+		case "reasoning-effort":
+			if *reasoningEffort != "low" && *reasoningEffort != "medium" && *reasoningEffort != "high" {
+				configErr = errors.New("--reasoning-effort must be low, medium, or high")
+			}
+		}
+	})
+	if configErr != nil {
+		return configErr
 	}
 	if *inspect != "" || *runID != "" {
 		return inspectAttempt(*state, *runID, *inspect, os.Stdout)
@@ -174,7 +195,7 @@ func run() error {
 	var executor engine.Executor = fixture{store: store}
 	if *backend == "codex" {
 		executor = &lazyExecutor{factory: func() (engine.Executor, error) {
-			return codexadapter.New(codexadapter.Config{Store: store, RPC: codexrpc.Config{Command: *binary, Dir: workspace}, StartupTimeout: 30 * time.Second, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second, OnStatus: func(s codexadapter.Status) { _ = json.NewEncoder(os.Stderr).Encode(s) }})
+			return codexadapter.New(codexadapter.Config{Store: store, Model: *model, ReasoningEffort: *reasoningEffort, RPC: codexrpc.Config{Command: *binary, Dir: workspace}, StartupTimeout: 30 * time.Second, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second, OnStatus: func(s codexadapter.Status) { _ = json.NewEncoder(os.Stderr).Encode(s) }})
 		}}
 	}
 	defer executor.Close()
