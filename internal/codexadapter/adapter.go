@@ -54,7 +54,12 @@ func (a *Adapter) Execute(ctx context.Context, t engine.Task) (engine.Result, er
 	if err != nil && requiresQuarantine(err) {
 		err = errors.Join(err, a.store.Quarantine(t, err))
 	}
-	return engine.Result{Text: r.Text, Session: r.Session, PID: r.PID, Failure: engine.FailureMetadata(err)}, err
+	result := engine.Result{Text: r.Text, Session: r.Session, PID: r.PID, Failure: engine.FailureMetadata(err)}
+	if err == nil {
+		result.ActualMemberID = activation.Role.ID
+		result.ActualRoleVersion = activation.Role.Version
+	}
+	return result, err
 }
 
 // Pre-dispatch failures do not poison a role session. Unknown/unclassified errors

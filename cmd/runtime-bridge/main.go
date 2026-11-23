@@ -70,10 +70,12 @@ func (l *lazyExecutor) Close() error {
 	return nil
 }
 
-type fixture struct{}
+type fixture struct {
+	store *engine.Store
+}
 
 func (fixture) Close() error { return nil }
-func (fixture) Execute(_ context.Context, t engine.Task) (engine.Result, error) {
+func (f fixture) Execute(ctx context.Context, t engine.Task) (engine.Result, error) {
 	var input struct {
 		Fixture json.RawMessage `json:"fixture"`
 		Text    *string         `json:"fixture_text"`
@@ -81,16 +83,27 @@ func (fixture) Execute(_ context.Context, t engine.Task) (engine.Result, error) 
 	if err := json.Unmarshal([]byte(t.Input), &input); err != nil {
 		return engine.Result{}, err
 	}
-	if input.Text != nil {
+	var output string
+	switch {
+	case input.Text != nil:
 		if len(input.Fixture) != 0 {
 			return engine.Result{}, errors.New("ambiguous fixture output")
 		}
-		return engine.Result{Text: *input.Text}, nil
-	}
-	if len(input.Fixture) == 0 {
+		output = *input.Text
+	case len(input.Fixture) == 0:
 		return engine.Result{}, errors.New("fixture field required in fixture backend")
+	default:
+		output = string(input.Fixture)
 	}
-	return engine.Result{Text: string(input.Fixture)}, nil
+	activation, err := f.store.ResolveDefinitions(ctx, t)
+	if err != nil {
+		return engine.Result{}, err
+	}
+	return engine.Result{
+		Text:              output,
+		ActualMemberID:    activation.Role.ID,
+		ActualRoleVersion: activation.Role.Version,
+	}, nil
 }
 func execute(ctx context.Context, store *engine.Store, executor engine.Executor, req request) (response, error) {
 	out := response{ID: req.ID}
@@ -158,7 +171,7 @@ func run() error {
 	if err = store.RegisterProject(engine.Project{ID: "bridge", Workspace: workspace, Rules: "Integration pilot. Backend=" + *backend + ". Use only supplied synthetic evidence. Do not call tools or modify files. Return only the requested JSON."}); err != nil {
 		return err
 	}
-	var executor engine.Executor = fixture{}
+	var executor engine.Executor = fixture{store: store}
 	if *backend == "codex" {
 		executor = &lazyExecutor{factory: func() (engine.Executor, error) {
 			return codexadapter.New(codexadapter.Config{Store: store, RPC: codexrpc.Config{Command: *binary, Dir: workspace}, StartupTimeout: 30 * time.Second, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second, OnStatus: func(s codexadapter.Status) { _ = json.NewEncoder(os.Stderr).Encode(s) }})
