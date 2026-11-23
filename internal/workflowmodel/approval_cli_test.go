@@ -32,8 +32,10 @@ const (
 
 type approvalModel struct {
 	fakeModel
-	contract *WorkContract
-	action   string
+	contract                *WorkContract
+	action                  string
+	failRevision            bool
+	injectedRevisionFailure bool
 }
 
 func (m *approvalModel) Execute(_ context.Context, r sdk.Request) (sdk.Result, error) {
@@ -76,6 +78,13 @@ func (m *approvalModel) Execute(_ context.Context, r sdk.Request) (sdk.Result, e
 		for _, want := range []string{approvalOriginalTitle, approvalOriginalBody, m.contract.ID, m.contract.Objective, m.contract.RequiredItems[0], "receipt-gap", approvalObservation, approvalReason} {
 			if !strings.Contains(r.Input, want) {
 				return sdk.Result{}, fmt.Errorf("revision input is missing %q", want)
+			}
+		}
+		if m.failRevision {
+			m.injectedRevisionFailure = true
+			return sdk.Result{}, phaseError{
+				cause: errors.New("fixture producer failed during the approved revision"),
+				stage: "model", state: "not_started",
 			}
 		}
 		return sdk.Result{Text: `{"title":"` + approvalRevisedTitle + `","body":"` + approvalRevisedBody + `"}`}, nil
@@ -135,7 +144,7 @@ func (p *approvalProcess) requireStatus(t *testing.T, allowed ...string) (string
 		}
 		if p.err != nil {
 			var exitErr *exec.ExitError
-			domainOutcome := status == "conflict" || status == "unsupported" || status == "uncertain"
+			domainOutcome := status == "conflict" || status == "unsupported" || status == "uncertain" || status == "failed"
 			if !domainOutcome || !errors.As(p.err, &exitErr) {
 				t.Fatalf("approval CLI failed\n%s", p.diagnostic())
 			}
@@ -219,23 +228,42 @@ type approvalFixture struct {
 
 func newApprovalFixture(t *testing.T, action string) approvalFixture {
 	t.Helper()
-	python := os.Getenv("APPROVAL_PYTHON")
-	cwd := os.Getenv("APPROVAL_ORCHESTRATOR")
-	if !filepath.IsAbs(python) || !filepath.IsAbs(cwd) {
-		t.Skip("approval integration requires absolute APPROVAL_PYTHON (Python executable) and APPROVAL_ORCHESTRATOR (repository directory)")
-	}
+	f := seedApprovalFixture(t, approvalTempRoot(t), action)
+	startApprovalControl(t, f.store, f.cli)
+	return f
+}
+
+func approvalTempRoot(t *testing.T) string {
+	t.Helper()
 	// Keep the real Unix socket path short even when the test name is long.
 	root, err := os.MkdirTemp("/tmp", "ar-")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(root) })
+	return root
+}
+
+func approvalCLIAt(t *testing.T, root string) approvalCLI {
+	t.Helper()
+	python := os.Getenv("APPROVAL_PYTHON")
+	cwd := os.Getenv("APPROVAL_ORCHESTRATOR")
+	if !filepath.IsAbs(python) || !filepath.IsAbs(cwd) {
+		t.Skip("approval integration requires absolute APPROVAL_PYTHON (Python executable) and APPROVAL_ORCHESTRATOR (repository directory)")
+	}
+	return approvalCLI{python: python, cwd: cwd, runID: filepath.Base(root),
+		socket: filepath.Join(root, "control", "runtime.sock"), state: filepath.Join(root, "approval.sqlite3")}
+}
+
+func seedApprovalFixture(t *testing.T, root, action string) approvalFixture {
+	t.Helper()
+	cli := approvalCLIAt(t, root)
 	s, err := engine.OpenStore(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
-	runID := filepath.Base(root)
+	runID := cli.runID
 	if err := s.EnableLifecycle(runID, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -292,11 +320,18 @@ func newApprovalFixture(t *testing.T, action string) approvalFixture {
 	if len(m.requests) != 2 {
 		t.Fatalf("original workflow made %d model requests, want 2", len(m.requests))
 	}
-	socket := filepath.Join(s.Root, "control", "runtime.sock")
+	return approvalFixture{
+		store: s, executor: e, model: m, originals: originals, cli: cli,
+		reviewSHA: fmt.Sprintf("%x", sha256.Sum256(originals["review.json"])),
+	}
+}
+
+func startApprovalControl(t *testing.T, s *engine.Store, cli approvalCLI) {
+	t.Helper()
 	server := &control.Server{
-		Store: s, Socket: socket,
+		Store: s, Socket: cli.socket,
 		Config: control.Config{
-			RunID: runID, Project: "pipeline", ApprovedRevisions: true,
+			RunID: cli.runID, Project: "pipeline", ApprovedRevisions: true,
 			Consumers: map[string]engine.Address{"graph": {Project: "pipeline", Role: "consumer", Version: "v1", Instance: "main"}},
 		},
 	}
@@ -306,11 +341,6 @@ func newApprovalFixture(t *testing.T, action string) approvalFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cancel(); server.Close() })
-	return approvalFixture{
-		store: s, executor: e, model: m, originals: originals,
-		cli:       approvalCLI{python: python, cwd: cwd, socket: socket, runID: runID, state: filepath.Join(root, "approval.sqlite3")},
-		reviewSHA: fmt.Sprintf("%x", sha256.Sum256(originals["review.json"])),
-	}
 }
 
 func requireNoApprovalLease(t *testing.T, s *engine.Store, taskID string) {
@@ -421,4 +451,3 @@ func TestPythonApprovalCompleteProposalIsUnsupported(t *testing.T) {
 	}
 	f.recordCase(t, "unsupported", status, before, after, nil)
 }
-

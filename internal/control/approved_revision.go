@@ -21,7 +21,20 @@ type approvedReview struct {
 	ContractID   string   `json:"contract_id"`
 }
 
+type approvedReviewSource struct {
+	review approvedReview
+	digest string
+}
+
 func (s *Server) approveRevision(req request) (any, string) {
+	return s.evaluateApprovedRevision(req, false)
+}
+
+func (s *Server) checkRevision(req request) (any, string) {
+	return s.evaluateApprovedRevision(req, true)
+}
+
+func (s *Server) evaluateApprovedRevision(req request, checkOnly bool) (any, string) {
 	var p struct {
 		ReviewTaskID   string `json:"review_task_id"`
 		ArtifactSHA256 string `json:"artifact_sha256"`
@@ -33,11 +46,33 @@ func (s *Server) approveRevision(req request) (any, string) {
 		return nil, "invalid_request"
 	}
 
-	r, err := s.Store.CooperativeReceipt(p.ReviewTaskID)
+	// The check is advisory: approval derives the task again before submitting it.
+	task, code := s.expectedApprovedRevision(p.ReviewTaskID, &p.ArtifactSHA256)
+	if code != "" {
+		return nil, code
+	}
+	if !checkOnly {
+		return s.submitApprovedRevision(task)
+	}
+
+	r, err := s.Store.CooperativeReceipt(task.ID)
+	if err != nil {
+		if code := errCode(err); code != "not_found" {
+			return nil, code
+		}
+	} else if r.Task != task {
+		return nil, "conflict"
+	}
+	return map[string]any{"task_id": task.ID, "project": task.Project, "role": task.Role, "task_kind": approvedRevisionTaskKind}, ""
+}
+
+// A nil digest lets receipt binding use the verified digest from the saved review.
+func (s *Server) readApprovedReview(reviewTaskID string, digest *string) (*approvedReviewSource, string) {
+	r, err := s.Store.CooperativeReceipt(reviewTaskID)
 	if err != nil {
 		return nil, errCode(err)
 	}
-	if r.Task.ID != p.ReviewTaskID || r.Task.Role != "consumer" || r.Task.Project != s.Config.Project {
+	if r.Task.ID != reviewTaskID || r.Task.Role != "consumer" || r.Task.Project != s.Config.Project {
 		return nil, "scope_mismatch"
 	}
 	if r.Status != "completed" {
@@ -51,7 +86,7 @@ func (s *Server) approveRevision(req request) (any, string) {
 	if code != "" {
 		return nil, code
 	}
-	if reviewRef.Artifact.SHA256 != p.ArtifactSHA256 {
+	if digest != nil && reviewRef.Artifact.SHA256 != *digest {
 		return nil, "conflict"
 	}
 	var review approvedReview
@@ -76,18 +111,13 @@ func (s *Server) approveRevision(req request) (any, string) {
 		seen[id] = struct{}{}
 	}
 
-	writer, err := s.Store.CooperativeReceipt("producer")
-	if err != nil {
-		return nil, errCode(err)
-	}
-	if writer.Task.ID != "producer" || writer.Task.Role != "producer" || writer.Task.Project != s.Config.Project {
-		return nil, "scope_mismatch"
-	}
-	if writer.Status != "completed" {
-		return nil, "conflict"
-	}
+	return &approvedReviewSource{review: review, digest: reviewRef.Artifact.SHA256}, ""
+}
+
+func (s *Server) approvedRevisionInput(writerID, writerText string, source *approvedReviewSource) ([]byte, string) {
+	review := source.review
 	var documentRef Reference
-	if strict([]byte(writer.Text), &documentRef) != nil || documentRef.Producer != writer.Task.ID {
+	if strict([]byte(writerText), &documentRef) != nil || documentRef.Producer != writerID {
 		return nil, "invalid_request"
 	}
 	documentData, code := s.readApprovedArtifact(documentRef.Artifact, "document.json")
@@ -130,11 +160,11 @@ func (s *Server) approveRevision(req request) (any, string) {
 		TaskContract     json.RawMessage `json:"task_contract"`
 		Review           approvedReview  `json:"review"`
 		ReviewSHA256     string          `json:"review_sha256"`
-	}{documentData, document.TaskContract, review, reviewRef.Artifact.SHA256})
+	}{documentData, document.TaskContract, review, source.digest})
 	if err != nil {
 		return nil, "invalid_request"
 	}
-	return s.submitApprovedRevision(writer.Task, string(input))
+	return input, ""
 }
 
 // name is a workflow constant or is derived from the server's revision ID.
@@ -171,4 +201,3 @@ func (s *Server) readApprovedArtifact(ref Artifact, name string) ([]byte, string
 	}
 	return data, ""
 }
-
