@@ -85,7 +85,7 @@ func (m *approvalModel) Execute(_ context.Context, r sdk.Request) (sdk.Result, e
 }
 
 type approvalCLI struct {
-	python, cwd, socket, state string
+	python, cwd, socket, state, runID string
 }
 
 type approvalProcess struct {
@@ -93,13 +93,21 @@ type approvalProcess struct {
 	err            error
 }
 
-func (c approvalCLI) run(operation, digest string) *approvalProcess {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	args := []string{"-m", "role_orchestrator.approval", operation, "--socket", c.socket, "--run-id", "run", "--review-task-id", "consumer", "--state", c.state}
+func (c approvalCLI) flags(operation, digest string) []string {
+	args := []string{operation, "--socket", c.socket, "--run-id", c.runID, "--review-task-id", "consumer", "--state", c.state}
 	if operation == "approve" {
 		args = append(args, "--artifact-sha256", digest)
 	}
+	return args
+}
+
+func (c approvalCLI) run(operation, digest string) *approvalProcess {
+	return c.command(append([]string{"-m", "role_orchestrator.approval"}, c.flags(operation, digest)...)...)
+}
+
+func (c approvalCLI) command(args ...string) *approvalProcess {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	result := &approvalProcess{}
 	cmd := exec.CommandContext(ctx, c.python, args...)
 	cmd.Dir, cmd.Stdout, cmd.Stderr = c.cwd, &result.stdout, &result.stderr
@@ -206,6 +214,7 @@ type approvalFixture struct {
 	cli       approvalCLI
 	reviewSHA string
 	originals map[string][]byte
+	leases    approvalLeaseHistory
 }
 
 func newApprovalFixture(t *testing.T, action string) approvalFixture {
@@ -226,7 +235,8 @@ func newApprovalFixture(t *testing.T, action string) approvalFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
-	if err := s.EnableLifecycle("run", 0); err != nil {
+	runID := filepath.Base(root)
+	if err := s.EnableLifecycle(runID, 0); err != nil {
 		t.Fatal(err)
 	}
 	for _, dir := range []string{"workspace", "control"} {
@@ -241,7 +251,7 @@ func newApprovalFixture(t *testing.T, action string) approvalFixture {
 	}
 	m := &approvalModel{contract: contract, action: action}
 	e := &Executor{
-		Store: s, Contract: contract, RunID: "run",
+		Store: s, Contract: contract, RunID: runID,
 		Factory: func(context.Context, func(sdk.Status)) (Model, error) { return m, nil },
 	}
 	t.Cleanup(func() { e.Close() })
@@ -286,7 +296,7 @@ func newApprovalFixture(t *testing.T, action string) approvalFixture {
 	server := &control.Server{
 		Store: s, Socket: socket,
 		Config: control.Config{
-			RunID: "run", Project: "pipeline", ApprovedRevisions: true,
+			RunID: runID, Project: "pipeline", ApprovedRevisions: true,
 			Consumers: map[string]engine.Address{"graph": {Project: "pipeline", Role: "consumer", Version: "v1", Instance: "main"}},
 		},
 	}
@@ -298,7 +308,7 @@ func newApprovalFixture(t *testing.T, action string) approvalFixture {
 	t.Cleanup(func() { cancel(); server.Close() })
 	return approvalFixture{
 		store: s, executor: e, model: m, originals: originals,
-		cli:       approvalCLI{python: python, cwd: cwd, socket: socket, state: filepath.Join(root, "approval.sqlite3")},
+		cli:       approvalCLI{python: python, cwd: cwd, socket: socket, runID: runID, state: filepath.Join(root, "approval.sqlite3")},
 		reviewSHA: fmt.Sprintf("%x", sha256.Sum256(originals["review.json"])),
 	}
 }
@@ -312,7 +322,7 @@ func requireNoApprovalLease(t *testing.T, s *engine.Store, taskID string) {
 
 func TestPythonApprovalRevisionOverUnixRPC(t *testing.T) {
 	f := newApprovalFixture(t, "revise")
-	taskID := engine.Digest("run", "consumer")
+	taskID := f.revisionID()
 	f.cli.run("status", "").requireStatus(t, "unapproved")
 	requireNoApprovalLease(t, f.store, taskID)
 
@@ -323,6 +333,7 @@ func TestPythonApprovalRevisionOverUnixRPC(t *testing.T) {
 	f.cli.run("approve", wrongSHA).requireStatus(t, "conflict")
 	requireNoApprovalLease(t, f.store, taskID)
 
+	before := f.leaseSnapshot(t)
 	start := make(chan struct{})
 	results := make(chan *approvalProcess, 2)
 	for i := 0; i < 2; i++ {
@@ -343,10 +354,30 @@ func TestPythonApprovalRevisionOverUnixRPC(t *testing.T) {
 		t.Fatal("approval executed a model before the revision was leased")
 	}
 
+	artifact := f.finishRevision(t)
+	afterRevision := approvalArtifacts(t, f.store)
+	status := f.pollCompleted(t, artifact)
+	after := f.leaseSnapshot(t)
+	f.cli.run("approve", f.reviewSHA).requireCompletedArtifact(t, artifact)
+	f.cli.run("approve", wrongSHA).requireStatus(t, "conflict")
+	requireNoApprovalLease(t, f.store, taskID)
+	if len(f.model.requests) != 3 {
+		t.Fatalf("model requests = %d, want original producer, reviewer, and one revision", len(f.model.requests))
+	}
+	f.requireFiles(t, afterRevision)
+	f.recordCase(t, "concurrent", status, before, after, artifact)
+}
+
+func (f *approvalFixture) finishRevision(t *testing.T) *approvalSavedArtifact {
+	t.Helper()
+	taskID := f.revisionID()
 	revision, err := f.store.LeaseCooperative(taskID, time.Now(), time.Minute)
 	if err != nil {
 		t.Fatalf("lease durable revision %q: %v", taskID, err)
 	}
+	// Record the native lease key only on a successful acquisition. This is
+	// the same (task ID, generation) pair used by FinishCooperative below.
+	f.leases = append(f.leases, approvalNativeLease{TaskID: taskID, Generation: revision.Generation})
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	transition, err := f.executor.Step(ctx, revision.Execution)
@@ -374,33 +405,20 @@ func TestPythonApprovalRevisionOverUnixRPC(t *testing.T) {
 	if len(afterRevision) != len(f.originals)+1 {
 		t.Fatalf("revision added %d artifacts, want exactly one", len(afterRevision)-len(f.originals))
 	}
-	revisionSHA := fmt.Sprintf("%x", sha256.Sum256(data))
-	for _, operation := range []string{"status", "approve"} {
-		result := f.cli.run(operation, f.reviewSHA)
-		_, output := result.requireStatus(t, "completed")
-		if !approvalReportedArtifact(output, id, revisionSHA) {
-			t.Fatalf("%s did not report revision artifact %q with SHA-256 %s\n%s", operation, id, revisionSHA, result.diagnostic())
-		}
-	}
-	f.cli.run("approve", wrongSHA).requireStatus(t, "conflict")
-	requireNoApprovalLease(t, f.store, taskID)
-	if len(f.model.requests) != 3 {
-		t.Fatalf("model requests = %d, want original producer, reviewer, and one revision", len(f.model.requests))
-	}
-	if !reflect.DeepEqual(approvalArtifacts(t, f.store), afterRevision) {
-		t.Fatal("repeated or conflicting approval changed the saved artifacts")
-	}
+	return &approvalSavedArtifact{ID: id, SHA256: fmt.Sprintf("%x", sha256.Sum256(data)), data: data}
 }
 
 func TestPythonApprovalCompleteProposalIsUnsupported(t *testing.T) {
 	f := newApprovalFixture(t, "complete")
-	f.cli.run("approve", f.reviewSHA).requireStatus(t, "unsupported")
-	requireNoApprovalLease(t, f.store, engine.Digest("run", "consumer"))
+	before := f.leaseSnapshot(t)
+	status, _ := f.cli.run("approve", f.reviewSHA).requireStatus(t, "unsupported")
+	after := f.leaseSnapshot(t)
 	if len(f.model.requests) != 2 {
 		t.Fatalf("unsupported approval made %d extra model requests", len(f.model.requests)-2)
 	}
 	if !reflect.DeepEqual(approvalArtifacts(t, f.store), f.originals) {
 		t.Fatal("unsupported approval changed the original artifacts")
 	}
+	f.recordCase(t, "unsupported", status, before, after, nil)
 }
 
