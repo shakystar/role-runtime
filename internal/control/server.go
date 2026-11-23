@@ -44,7 +44,8 @@ type Reference struct {
 type Config struct {
 	RunID     string                    `json:"run_id"`
 	Project   string                    `json:"project"`
-	Consumers map[string]engine.Address `json:"consumers"`
+	Consumers         map[string]engine.Address `json:"consumers"`
+	ApprovedRevisions bool                      `json:"approved_revisions,omitempty"`
 }
 type Server struct {
 	stop      chan struct{}
@@ -358,7 +359,15 @@ func (s *Server) receipt(id string) (map[string]any, string) {
 		return nil, "scope_mismatch"
 	}
 	var ref Reference
-	valid := strict([]byte(r.Text), &ref) == nil && ref.Producer == id && s.artifactOK(ref.Artifact)
+	valid := strict([]byte(r.Text), &ref) == nil && ref.Producer == id
+	if valid {
+		if s.Config.ApprovedRevisions && r.Task.Role == "producer" && id == s.approvedRevisionID() {
+			_, code := s.readApprovedArtifact(ref.Artifact, "revision-"+id+".json")
+			valid = code == ""
+		} else {
+			valid = s.artifactOK(ref.Artifact)
+		}
+	}
 	return map[string]any{"task": r.Task, "status": r.Status, "receipt_revision": r.Revision, "attempt_id": r.AttemptID, "artifact": ref.Artifact, "artifact_valid": valid, "generation": r.Generation, "failure": r.Failure, "execution": r.ExecutionState}, ""
 }
 func (s *Server) syncNotices(to engine.Address) error {
@@ -504,6 +513,11 @@ func (s *Server) dispatch(req request) (any, string) {
 		}
 		e = lifecycle.Write(path, b)
 		return map[string]bool{"acknowledged": e == nil}, errCode(e)
+	case "revisions.approve":
+		if !s.Config.ApprovedRevisions {
+			return nil, "invalid_request"
+		}
+		return s.approveRevision(req)
 	case "tasks.submit":
 		var p struct {
 			Consumer string      `json:"consumer_id"`
@@ -538,6 +552,31 @@ func (s *Server) dispatch(req request) (any, string) {
 		return map[string]bool{"cached": false}, errCode(e)
 	}
 	return nil, "invalid_request"
+}
+
+func (s *Server) approvedRevisionID() string {
+	return engine.Digest(s.Config.RunID, "consumer")
+}
+
+func (s *Server) submitApprovedRevision(task engine.Task, input string) (any, string) {
+	task.ID = s.approvedRevisionID()
+	task.Input = input
+	if task.Validate() != nil {
+		return nil, "invalid_request"
+	}
+	err := s.Store.SubmitCooperative(task)
+	cached := errors.Is(err, engine.ErrDuplicate)
+	if err != nil && !cached {
+		return nil, errCode(err)
+	}
+	r, err := s.Store.CooperativeReceipt(task.ID)
+	if err != nil {
+		return nil, errCode(err)
+	}
+	if r.Task != task {
+		return nil, "conflict"
+	}
+	return map[string]any{"task_id": task.ID, "cached": cached, "status": r.Status}, ""
 }
 
 // DecodeJSON shares the strict bounded-caller JSON shape checks with runtime-owned artifacts.
