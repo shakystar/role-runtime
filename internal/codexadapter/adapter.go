@@ -19,6 +19,7 @@ type Config struct {
 	TaskTimeout       time.Duration
 	StartupTimeout    time.Duration
 	Model             string
+	ReasoningEffort   string
 	OutputSchema      json.RawMessage
 	OnProcessStart    func(int)
 	HeartbeatInterval time.Duration
@@ -39,7 +40,7 @@ func New(c Config) (*Adapter, error) {
 	if c.Store == nil {
 		return nil, errors.New("codex adapter requires store")
 	}
-	a, err := sdk.New(sdk.Config{RPC: c.RPC, StateDir: c.Store.Root, TaskTimeout: c.TaskTimeout, StartupTimeout: c.StartupTimeout, StartupAttempts: c.StartupAttempts, RetryBackoff: c.RetryBackoff, Model: c.Model, OutputSchema: c.OutputSchema, OnProcessStart: c.OnProcessStart, HeartbeatInterval: c.HeartbeatInterval, HeartbeatTimeout: c.HeartbeatTimeout, OnStatus: c.OnStatus})
+	a, err := sdk.New(sdk.Config{RPC: c.RPC, StateDir: c.Store.Root, TaskTimeout: c.TaskTimeout, StartupTimeout: c.StartupTimeout, StartupAttempts: c.StartupAttempts, RetryBackoff: c.RetryBackoff, Model: c.Model, ReasoningEffort: c.ReasoningEffort, OutputSchema: c.OutputSchema, OnProcessStart: c.OnProcessStart, HeartbeatInterval: c.HeartbeatInterval, HeartbeatTimeout: c.HeartbeatTimeout, OnStatus: c.OnStatus})
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +55,12 @@ func (a *Adapter) Execute(ctx context.Context, t engine.Task) (engine.Result, er
 	if err != nil && requiresQuarantine(err) {
 		err = errors.Join(err, a.store.Quarantine(t, err))
 	}
-	return engine.Result{Text: r.Text, Session: r.Session, PID: r.PID, Failure: engine.FailureMetadata(err)}, err
+	result := engine.Result{Text: r.Text, Session: r.Session, PID: r.PID, Failure: engine.FailureMetadata(err)}
+	if err == nil {
+		result.ActualMemberID = activation.Role.ID
+		result.ActualRoleVersion = activation.Role.Version
+	}
+	return result, err
 }
 
 // Pre-dispatch failures do not poison a role session. Unknown/unclassified errors

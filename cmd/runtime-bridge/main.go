@@ -70,10 +70,12 @@ func (l *lazyExecutor) Close() error {
 	return nil
 }
 
-type fixture struct{}
+type fixture struct {
+	store *engine.Store
+}
 
 func (fixture) Close() error { return nil }
-func (fixture) Execute(_ context.Context, t engine.Task) (engine.Result, error) {
+func (f fixture) Execute(ctx context.Context, t engine.Task) (engine.Result, error) {
 	var input struct {
 		Fixture json.RawMessage `json:"fixture"`
 		Text    *string         `json:"fixture_text"`
@@ -81,16 +83,27 @@ func (fixture) Execute(_ context.Context, t engine.Task) (engine.Result, error) 
 	if err := json.Unmarshal([]byte(t.Input), &input); err != nil {
 		return engine.Result{}, err
 	}
-	if input.Text != nil {
+	var output string
+	switch {
+	case input.Text != nil:
 		if len(input.Fixture) != 0 {
 			return engine.Result{}, errors.New("ambiguous fixture output")
 		}
-		return engine.Result{Text: *input.Text}, nil
-	}
-	if len(input.Fixture) == 0 {
+		output = *input.Text
+	case len(input.Fixture) == 0:
 		return engine.Result{}, errors.New("fixture field required in fixture backend")
+	default:
+		output = string(input.Fixture)
 	}
-	return engine.Result{Text: string(input.Fixture)}, nil
+	activation, err := f.store.ResolveDefinitions(ctx, t)
+	if err != nil {
+		return engine.Result{}, err
+	}
+	return engine.Result{
+		Text:              output,
+		ActualMemberID:    activation.Role.ID,
+		ActualRoleVersion: activation.Role.Version,
+	}, nil
 }
 func execute(ctx context.Context, store *engine.Store, executor engine.Executor, req request) (response, error) {
 	out := response{ID: req.ID}
@@ -130,6 +143,8 @@ func run() error {
 	state := flag.String("state", "", "persistent runtime directory")
 	backend := flag.String("backend", "fixture", "fixture or codex")
 	binary := flag.String("codex", "codex", "Codex executable")
+	model := flag.String("model", "", "Codex model: gpt-6.2-sol or gpt-6.2-astra")
+	reasoningEffort := flag.String("reasoning-effort", "", "Codex reasoning effort: low, medium, or high")
 	legacy := flag.Bool("allow-legacy", false, "explicitly accept unversioned requests in an isolated state")
 	inspect := flag.String("inspect-attempt", "", "read one existing attempt without submitting work")
 	runID := flag.String("run-id", "", "expected owner of the inspected attempt")
@@ -137,6 +152,25 @@ func run() error {
 	flag.Parse()
 	if *capabilities {
 		return json.NewEncoder(os.Stdout).Encode(map[string]int{"bridge": 1, "inspect_attempt": 1, "fixture_text": 1})
+	}
+	var configErr error
+	flag.Visit(func(f *flag.Flag) {
+		if configErr != nil {
+			return
+		}
+		switch f.Name {
+		case "model":
+			if *model != "gpt-6.2-sol" && *model != "gpt-6.2-astra" {
+				configErr = errors.New("--model must be gpt-6.2-sol or gpt-6.2-astra")
+			}
+		case "reasoning-effort":
+			if *reasoningEffort != "low" && *reasoningEffort != "medium" && *reasoningEffort != "high" {
+				configErr = errors.New("--reasoning-effort must be low, medium, or high")
+			}
+		}
+	})
+	if configErr != nil {
+		return configErr
 	}
 	if *inspect != "" || *runID != "" {
 		return inspectAttempt(*state, *runID, *inspect, os.Stdout)
@@ -158,10 +192,10 @@ func run() error {
 	if err = store.RegisterProject(engine.Project{ID: "bridge", Workspace: workspace, Rules: "Integration pilot. Backend=" + *backend + ". Use only supplied synthetic evidence. Do not call tools or modify files. Return only the requested JSON."}); err != nil {
 		return err
 	}
-	var executor engine.Executor = fixture{}
+	var executor engine.Executor = fixture{store: store}
 	if *backend == "codex" {
 		executor = &lazyExecutor{factory: func() (engine.Executor, error) {
-			return codexadapter.New(codexadapter.Config{Store: store, RPC: codexrpc.Config{Command: *binary, Dir: workspace}, StartupTimeout: 30 * time.Second, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second, OnStatus: func(s codexadapter.Status) { _ = json.NewEncoder(os.Stderr).Encode(s) }})
+			return codexadapter.New(codexadapter.Config{Store: store, Model: *model, ReasoningEffort: *reasoningEffort, RPC: codexrpc.Config{Command: *binary, Dir: workspace}, StartupTimeout: 30 * time.Second, HeartbeatInterval: 15 * time.Second, HeartbeatTimeout: 10 * time.Second, OnStatus: func(s codexadapter.Status) { _ = json.NewEncoder(os.Stderr).Encode(s) }})
 		}}
 	}
 	defer executor.Close()

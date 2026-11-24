@@ -102,6 +102,22 @@ func (e *Executor) Step(ctx context.Context, x engine.Execution) (transition eng
 	switch x.Task.Role {
 	case "producer":
 		req.Instructions = WriterInstruction
+		if x.Task.ID != "producer" {
+			if e.Contract == nil || x.Task.ID != engine.Digest(e.RunID, "consumer") {
+				return transition, errors.New("invalid approved revision task")
+			}
+			original, readErr := e.Store.CooperativeReceipt("producer")
+			if readErr != nil {
+				return transition, readErr
+			}
+			if original.Status != "completed" || engine.AddressOf(original.Task) != engine.AddressOf(x.Task) {
+				return transition, errors.New("approved revision does not match the original writer")
+			}
+			req.SessionKey = original.Task.Key()
+			req.Input = x.Task.Input
+			file = "revision-" + x.Task.ID + ".json"
+			break
+		}
 		req.Input = Brief
 		if e.Contract != nil {
 			b, _ := json.Marshal(e.Contract)
@@ -240,7 +256,7 @@ func (e *Executor) Step(ctx context.Context, x engine.Execution) (transition eng
 	ref := control.Reference{Producer: x.Task.ID, Artifact: control.Artifact{ID: file, Version: "v1", SHA256: hex.EncodeToString(hash[:])}}
 	body, _ := json.Marshal(ref)
 	transition = engine.Transition{Text: string(body), ExecutionState: "completed"}
-	if x.Task.Role == "producer" {
+	if x.Task.Role == "producer" && x.Task.ID == "producer" {
 		transition.Send = []engine.Message{{ID: "document-ready", From: engine.AddressOf(x.Task), To: engine.Address{Project: "pipeline", Role: "consumer", Version: "v1", Instance: "main"}, Correlation: "document-v1", Body: string(body)}}
 	}
 	return transition, nil

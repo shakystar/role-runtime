@@ -80,15 +80,51 @@ func TestDurableDeduplicationAndUncertainWork(t *testing.T) {
 }
 
 func TestLiteralFixtureText(t *testing.T) {
-	task := engine.Task{Input: `{"fixture_text":"{\"notice\":\"ready\"}"}`}
-	got, err := (fixture{}).Execute(context.Background(), task)
+	ctx := context.Background()
+	store, err := engine.OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	project := engine.Project{ID: "p", Workspace: t.TempDir()}
+	if err := store.RegisterProject(project); err != nil {
+		t.Fatal(err)
+	}
+	role := engine.Role{ID: "r", Version: "v1", Instruction: "review", Tools: []string{"advisory"}}
+	if err := store.RegisterRole(role); err != nil {
+		t.Fatal(err)
+	}
+	f := fixture{store: store}
+	task := engine.Task{
+		ID:       "one",
+		Project:  project.ID,
+		Role:     role.ID,
+		Version:  role.Version,
+		Instance: "main",
+		Input:    `{"fixture_text":"{\"notice\":\"ready\"}"}`,
+	}
+	got, err := f.Execute(ctx, task)
 	if err != nil || got.Text != `{"notice":"ready"}` {
 		t.Fatalf("text %q, err %v", got.Text, err)
 	}
+	if got.ActualMemberID == "" || got.ActualRoleVersion != role.Version {
+		t.Fatalf("fixture_text resolved member %q, role version %q; want a nonempty member and role version %q", got.ActualMemberID, got.ActualRoleVersion, role.Version)
+	}
+	memberID := got.ActualMemberID
+
 	task.Input = `{"fixture":"raw-json"}`
-	got, err = (fixture{}).Execute(context.Background(), task)
+	got, err = f.Execute(ctx, task)
 	if err != nil || got.Text != `"raw-json"` {
-		t.Fatal("legacy fixture changed")
+		t.Fatalf("legacy fixture text %q, err %v", got.Text, err)
+	}
+	if got.ActualMemberID != memberID || got.ActualRoleVersion != role.Version {
+		t.Fatalf("legacy fixture resolved member %q, role version %q; want member %q and role version %q", got.ActualMemberID, got.ActualRoleVersion, memberID, role.Version)
+	}
+
+	task.ID = "missing-role"
+	task.Role = "unregistered"
+	if _, err := f.Execute(ctx, task); err == nil {
+		t.Fatalf("fixture execution succeeded for unregistered role %q", task.Role)
 	}
 }
 

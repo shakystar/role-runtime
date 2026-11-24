@@ -13,3 +13,8 @@
 - 모델 키, 세션 원문, 개인 작업 데이터는 커밋하지 않는다. 실험은 합성 데이터부터 시작한다.
 - 역할 변경으로 OS 프로세스의 권한이 격리된다고 간주하지 않는다. 도구·경로·환경 접근 범위를 별도로 검증한다.
 - 연구 결과와 결정 변경을 문서에 반영한다. 실험 실패도 결과로 남긴다.
+
+
+## 개발 기준과 검증
+
+[공통 개발 정책](https://github.com/shakystar/agent-collaboration-lab/blob/c541f5ba978d06bc0e5ce7a1c1df0dff1166149f/docs/development-policy.md)을 적용한다. 검증 명령은 레포 루트에서 실행한다. Go 및 pi 실험 의존성을 준비한 뒤 `./scripts/check.sh`

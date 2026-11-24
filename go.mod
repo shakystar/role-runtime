@@ -53,7 +53,7 @@ require (
 )
 
 require (
-	github.com/shakystar/codex-adapter v0.0.0-20261119053648-3ab5b920bf6c
+	github.com/shakystar/codex-adapter v0.0.0-20261123054343-17b36ab24d29
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0

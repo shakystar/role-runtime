@@ -178,7 +178,7 @@ func run() error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	server := &control.Server{Store: s, Socket: *socket, Config: control.Config{RunID: *runID, Project: "pipeline", Consumers: map[string]engine.Address{"graph": consumer}}}
+	server := &control.Server{Store: s, Socket: *socket, Config: control.Config{RunID: *runID, Project: "pipeline", ApprovedRevisions: *backend == "codex" && contract != nil, Consumers: map[string]engine.Address{"graph": consumer}}}
 	if e = server.Start(ctx); e != nil {
 		return e
 	}
