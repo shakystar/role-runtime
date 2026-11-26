@@ -9,7 +9,7 @@ import (
 func TestM1ModelFlagsBeforeState(t *testing.T) {
 	const (
 		stateErr  = "--state and valid --backend required"
-		modelErr  = "--model must be gpt-6.2-sol or gpt-6.2-astra"
+		modelErr  = "--model must be gpt-6.2-sol, gpt-6.2-astra, experimental gpt-6-luna (requires --reasoning-effort=high)"
 		effortErr = "--reasoning-effort must be low, medium, or high"
 		lunaErr   = "--model=gpt-6-luna requires --reasoning-effort=high"
 	)

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/shakystar/codex-adapter/rpc"
@@ -139,11 +140,34 @@ func execute(ctx context.Context, store *engine.Store, executor engine.Executor,
 	})
 	return out, err
 }
+
+var modelRoutes = [...]struct {
+	id             string
+	requiredEffort string
+}{
+	{id: "gpt-6.2-sol"},
+	{id: "gpt-6.2-astra"},
+	{id: "gpt-6-luna", requiredEffort: "high"},
+}
+
+func modelChoices() string {
+	choices := make([]string, 0, len(modelRoutes))
+	for _, route := range modelRoutes {
+		label := route.id
+		if route.requiredEffort != "" {
+			label = fmt.Sprintf("experimental %s (requires --reasoning-effort=%s)", route.id, route.requiredEffort)
+		}
+		choices = append(choices, label)
+	}
+	return strings.Join(choices, ", ")
+}
+
 func run() error {
 	state := flag.String("state", "", "persistent runtime directory")
 	backend := flag.String("backend", "fixture", "fixture or codex")
 	binary := flag.String("codex", "codex", "Codex executable")
-	model := flag.String("model", "", "Codex model: gpt-6.2-sol, gpt-6.2-astra, or experimental gpt-6-luna (requires --reasoning-effort=high)")
+	choices := modelChoices()
+	model := flag.String("model", "", "Codex model: "+choices)
 	reasoningEffort := flag.String("reasoning-effort", "", "Codex reasoning effort: low, medium, or high")
 	legacy := flag.Bool("allow-legacy", false, "explicitly accept unversioned requests in an isolated state")
 	inspect := flag.String("inspect-attempt", "", "read one existing attempt without submitting work")
@@ -154,15 +178,20 @@ func run() error {
 		return json.NewEncoder(os.Stdout).Encode(map[string]int{"bridge": 1, "inspect_attempt": 1, "fixture_text": 1})
 	}
 	var configErr error
+	var requiredEffort string
 	flag.Visit(func(f *flag.Flag) {
 		if configErr != nil {
 			return
 		}
 		switch f.Name {
 		case "model":
-			if *model != "gpt-6.2-sol" && *model != "gpt-6.2-astra" && *model != "gpt-6-luna" {
-				configErr = errors.New("--model must be gpt-6.2-sol or gpt-6.2-astra")
+			for _, route := range modelRoutes {
+				if *model == route.id {
+					requiredEffort = route.requiredEffort
+					return
+				}
 			}
+			configErr = errors.New("--model must be " + choices)
 		case "reasoning-effort":
 			if *reasoningEffort != "low" && *reasoningEffort != "medium" && *reasoningEffort != "high" {
 				configErr = errors.New("--reasoning-effort must be low, medium, or high")
@@ -172,8 +201,8 @@ func run() error {
 	if configErr != nil {
 		return configErr
 	}
-	if *model == "gpt-6-luna" && *reasoningEffort != "high" {
-		return errors.New("--model=gpt-6-luna requires --reasoning-effort=high")
+	if requiredEffort != "" && *reasoningEffort != requiredEffort {
+		return fmt.Errorf("--model=%s requires --reasoning-effort=%s", *model, requiredEffort)
 	}
 	if *inspect != "" || *runID != "" {
 		return inspectAttempt(*state, *runID, *inspect, os.Stdout)
