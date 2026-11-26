@@ -66,6 +66,13 @@ type Activation struct {
 type Resolver interface {
 	Resolve(context.Context, Task) (Activation, error)
 }
+
+type TurnUsage struct {
+	InputTokens       int64 `json:"input_tokens"`
+	OutputTokens      int64 `json:"output_tokens"`
+	CachedInputTokens int64 `json:"cached_input_tokens"`
+}
+
 type Result struct {
 	Failure           *ExecutionFailure `json:"failure,omitempty"`
 	Text              string            `json:"text,omitempty"`
@@ -74,6 +81,8 @@ type Result struct {
 	PID               int               `json:"pid,omitempty"`
 	ActualMemberID    string            `json:"actual_member_id,omitempty"`
 	ActualRoleVersion string            `json:"actual_role_version,omitempty"`
+	TurnID            string            `json:"turn_id,omitempty"`
+	TurnUsage         *TurnUsage        `json:"turn_usage,omitempty"`
 }
 type Outcome struct {
 	Task   Task   `json:"task"`

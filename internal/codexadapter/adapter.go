@@ -59,6 +59,14 @@ func (a *Adapter) Execute(ctx context.Context, t engine.Task) (engine.Result, er
 	if err == nil {
 		result.ActualMemberID = activation.Role.ID
 		result.ActualRoleVersion = activation.Role.Version
+		result.TurnID = r.TurnID
+		if r.TurnID != "" && r.TurnUsage != nil {
+			result.TurnUsage = &engine.TurnUsage{
+				InputTokens:       r.TurnUsage.InputTokens,
+				OutputTokens:      r.TurnUsage.OutputTokens,
+				CachedInputTokens: r.TurnUsage.CachedInputTokens,
+			}
+		}
 	}
 	return result, err
 }
