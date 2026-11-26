@@ -143,7 +143,7 @@ func run() error {
 	state := flag.String("state", "", "persistent runtime directory")
 	backend := flag.String("backend", "fixture", "fixture or codex")
 	binary := flag.String("codex", "codex", "Codex executable")
-	model := flag.String("model", "", "Codex model: gpt-6.2-sol or gpt-6.2-astra")
+	model := flag.String("model", "", "Codex model: gpt-6.2-sol, gpt-6.2-astra, or experimental gpt-6-luna (requires --reasoning-effort=high)")
 	reasoningEffort := flag.String("reasoning-effort", "", "Codex reasoning effort: low, medium, or high")
 	legacy := flag.Bool("allow-legacy", false, "explicitly accept unversioned requests in an isolated state")
 	inspect := flag.String("inspect-attempt", "", "read one existing attempt without submitting work")
@@ -160,7 +160,7 @@ func run() error {
 		}
 		switch f.Name {
 		case "model":
-			if *model != "gpt-6.2-sol" && *model != "gpt-6.2-astra" {
+			if *model != "gpt-6.2-sol" && *model != "gpt-6.2-astra" && *model != "gpt-6-luna" {
 				configErr = errors.New("--model must be gpt-6.2-sol or gpt-6.2-astra")
 			}
 		case "reasoning-effort":
@@ -171,6 +171,9 @@ func run() error {
 	})
 	if configErr != nil {
 		return configErr
+	}
+	if *model == "gpt-6-luna" && *reasoningEffort != "high" {
+		return errors.New("--model=gpt-6-luna requires --reasoning-effort=high")
 	}
 	if *inspect != "" || *runID != "" {
 		return inspectAttempt(*state, *runID, *inspect, os.Stdout)
